@@ -1,0 +1,135 @@
+// ===== Loyalsoldier 全局覆写脚本（精简优化版）=====
+// 1. 丢弃每个订阅自带的成千上万条 rules（治闪退根因）
+// 2. 统一用 Loyalsoldier(L大) 规则集分流，并换用稳定的 jsDelivr 加速源
+// 3. 自动聚合所有节点，选延迟最低的，超时自动切换
+// 4. 本地回环/内网域名直连，Proxifier 走代理，内网 DNS 不外泄
+// 5. 补齐私网 IP-CIDR 防泄漏，防御性拦截 WebRTC
+
+const PROXY = "⚡ Slipstream"
+
+function main(config) {
+    if (!config || typeof config !== "object") config = {}
+
+    // ---- 1. 代理组：聚合所有节点，自动选延迟最低，超时剔除 ----
+    config["proxy-groups"] = [
+        {
+            name: PROXY,
+            type: "url-test",
+            "include-all": true,
+            "exclude-filter": "(?i)(到期|剩余|过期|有效期|官网|官方|订阅|套餐|重置|流量|距离|网址|客服|expire|traffic|reset)",
+            url: "http://www.gstatic.com/generate_204",
+            interval: 300,
+            tolerance: 100,
+            lazy: true,
+        },
+    ]
+
+    // ---- 2. Loyalsoldier 规则集 (CDN 换成更稳定的 testingcf) ----
+    const CDN = "https://testingcf.jsdelivr.net/gh/Loyalsoldier/clash-rules@release"
+    const rp = (behavior, name) => ({
+        type: "http",
+        behavior,
+        url: CDN + "/" + name + ".txt",
+        path: "./ruleset/loyalsoldier/" + name + ".yaml",
+        interval: 86400,
+    })
+    config["rule-providers"] = {
+        reject: rp("domain", "reject"),
+        icloud: rp("domain", "icloud"),
+        apple: rp("domain", "apple"),
+        google: rp("domain", "google"),
+        proxy: rp("domain", "proxy"),
+        direct: rp("domain", "direct"),
+        private: rp("domain", "private"),
+        gfw: rp("domain", "gfw"),
+        "tld-not-cn": rp("domain", "tld-not-cn"),
+        telegramcidr: rp("ipcidr", "telegramcidr"),
+        cncidr: rp("ipcidr", "cncidr"),
+        lancidr: rp("ipcidr", "lancidr"),
+        applications: rp("classical", "applications"),
+    }
+
+    // ---- 3. 规则：完全替换，丢弃订阅自带 rules ----
+    config.rules = [
+        // 核心私网网段置顶 (硬编码直连，防止 rule-providers 异步加载期间请求泄漏到匹配代理)
+        "IP-CIDR,127.0.0.0/8,DIRECT,no-resolve",
+        "IP-CIDR,10.0.0.0/8,DIRECT,no-resolve",
+        "IP-CIDR,172.16.0.0/12,DIRECT,no-resolve",
+        "IP-CIDR,192.168.0.0/16,DIRECT,no-resolve",
+        "IP-CIDR,100.64.0.0/10,DIRECT,no-resolve",
+        "IP-CIDR,169.254.0.0/16,DIRECT,no-resolve",
+        "IP-CIDR,::1/128,DIRECT,no-resolve",
+        "IP-CIDR,fc00::/7,DIRECT,no-resolve",
+        "IP-CIDR,fe80::/10,DIRECT,no-resolve",
+
+        // 核心程序分流
+        "PROCESS-NAME,Proxifier.exe," + PROXY,
+
+        // AI 服务核心域名置顶，分流到 PROXY
+        // OpenAI / ChatGPT
+        "DOMAIN-SUFFIX,chatgpt.com," + PROXY,
+        "DOMAIN-SUFFIX,openai.com," + PROXY,
+        "DOMAIN-SUFFIX,oaiusercontent.com," + PROXY,
+        "DOMAIN-SUFFIX,oaistatic.com," + PROXY,
+        "DOMAIN-SUFFIX,sora.com," + PROXY,
+        // Anthropic / Claude
+        "DOMAIN-SUFFIX,anthropic.com," + PROXY,
+        "DOMAIN-SUFFIX,claude.ai," + PROXY,
+        // Google Gemini
+        "DOMAIN-SUFFIX,gemini.google," + PROXY,
+        "DOMAIN-SUFFIX,gemini.google.com," + PROXY,
+        "DOMAIN-SUFFIX,generativelanguage.googleapis.com," + PROXY,
+        "DOMAIN-SUFFIX,proactivebackend-pa.googleapis.com," + PROXY,
+        "DOMAIN-SUFFIX,alkalimena-pa.clients6.google.com," + PROXY,
+        // xAI / Grok
+        "DOMAIN-SUFFIX,x.ai," + PROXY,
+        "DOMAIN-SUFFIX,grok.com," + PROXY,
+        // Microsoft Copilot
+        "DOMAIN-SUFFIX,copilot.microsoft.com," + PROXY,
+        // Perplexity
+        "DOMAIN-SUFFIX,perplexity.ai," + PROXY,
+
+        // 公司及内部域名直连
+        "DOMAIN-SUFFIX,huinor.com,DIRECT",
+        "DOMAIN-SUFFIX,huitone.com,DIRECT",
+
+        // 规则集匹配
+        "RULE-SET,applications,DIRECT",
+        "RULE-SET,private,DIRECT",
+        "RULE-SET,reject,REJECT",
+        "RULE-SET,icloud,DIRECT",
+        "RULE-SET,apple,DIRECT",
+        "RULE-SET,google," + PROXY,
+        "RULE-SET,proxy," + PROXY,
+        "RULE-SET,gfw," + PROXY,
+        "RULE-SET,tld-not-cn," + PROXY,
+        "RULE-SET,direct,DIRECT",
+        "RULE-SET,lancidr,DIRECT,no-resolve",
+        "RULE-SET,cncidr,DIRECT,no-resolve",
+        "RULE-SET,telegramcidr," + PROXY + ",no-resolve",
+        "GEOIP,LAN,DIRECT,no-resolve",
+        "GEOIP,CN,DIRECT,no-resolve",
+        "MATCH," + PROXY,
+    ]
+
+    // ---- 4. DNS 与网络：内网域名走系统解析，避免泄漏到境外 DoH ----
+    const dns = config.dns || {}
+    if (dns.enable === undefined) dns.enable = true
+    dns["direct-nameserver"] = ["system://"]
+    dns["direct-nameserver-follow-policy"] = false
+    const policy = dns["nameserver-policy"] || {}
+    policy["+.huinor.com"] = "system://"
+    policy["+.huitone.com"] = "system://"
+    dns["nameserver-policy"] = policy
+    const filter = dns["fake-ip-filter"] || []
+    for (const d of ["+.huinor.com", "+.huitone.com"]) {
+        if (!filter.includes(d)) filter.push(d)
+    }
+    dns["fake-ip-filter"] = filter
+    config.dns = dns
+
+    // ---- 5. 禁用 内置 WebRTC 泄漏 ----
+    config["webrtc"] = false
+
+    return config
+}
