@@ -1,0 +1,153 @@
+// ===== Loyalsoldier 全局覆写脚本 v5.3（精简极速版）=====
+// [v5.3] 目标 = 精简 + 快: 单组自动锁最快节点(url-test), 高容差防漂移,
+//   去掉严格延迟口径(unified-delay), 测出的数字恢复常态。
+//   注: "测速全部"会同时测 300+ 节点、互相挤带宽 → 全部假高(~2400ms), 那不是真延迟。
+// 思路: ①只用 L大规则 ②直连走 DHCP 系统 DNS ③境外走谷歌 DNS(经代理) ④单组自动选最快
+// [稳定性] 针对"同一节点要刷几次才能打开":
+//   - tcp-concurrent: 多 IP 并发拨号, 哪个先通用哪个 → 大幅减少首连超时
+//   - 阻断 QUIC(UDP 443): YouTube/Google 等走代理时 QUIC 极易超时, 强制回退到更稳的 TCP
+// 备注: Store 打不开的根因是 UWP loopback(跑 fix-store-loopback.bat), 与本脚本无关。
+
+const PROXY = "⚡ 节点选择"
+
+// 公司/内网域名: 一律直连, 解析交给 DHCP 系统 DNS。新增直接加到这里。
+const COMPANY_DOMAINS = [
+    "huinor.com",
+    "huitone.com",
+    "synology.me",
+    "kunyi-gzzc.com",
+    "kunyi-gz.com",
+    "kunqi-dev.com",
+    "kunqi-demo.com",
+    "kunqi-test.com",
+    "kunyi-pro",
+    "kunqi-gz",
+]
+
+function main(config) {
+    if (!config || typeof config !== "object") config = {}
+
+    // ---- 0. 速度开关: 多 IP 并发建连 (哪个先通用哪个, 减少首连卡顿) ----
+    config["tcp-concurrent"] = true
+
+    // ---- 1. 代理组: 单组, 自动锁最快节点 (高容差防漂移) ----
+    config["proxy-groups"] = [
+        {
+            name: PROXY,
+            type: "url-test",
+            "include-all": true,
+            "exclude-filter":
+                "(?i)(到期|剩余|过期|有效期|官网|官方|订阅|套餐|重置|流量|距离|网址|客服|expire|traffic|reset)",
+            url: "http://www.gstatic.com/generate_204",
+            interval: 600,
+            tolerance: 300,
+            lazy: true,
+        },
+    ]
+
+    // ---- 2. L大规则集 (CDN 用国内稳定的 testingcf) ----
+    const CDN = "https://testingcf.jsdelivr.net/gh/Loyalsoldier/clash-rules@release"
+    const rp = (behavior, name) => ({
+        type: "http",
+        behavior,
+        url: CDN + "/" + name + ".txt",
+        path: "./ruleset/loyalsoldier/" + name + ".yaml",
+        interval: 86400,
+    })
+    config["rule-providers"] = {
+        reject: rp("domain", "reject"),
+        icloud: rp("domain", "icloud"),
+        apple: rp("domain", "apple"),
+        google: rp("domain", "google"),
+        proxy: rp("domain", "proxy"),
+        direct: rp("domain", "direct"),
+        private: rp("domain", "private"),
+        gfw: rp("domain", "gfw"),
+        "tld-not-cn": rp("domain", "tld-not-cn"),
+        telegramcidr: rp("ipcidr", "telegramcidr"),
+        cncidr: rp("ipcidr", "cncidr"),
+        lancidr: rp("ipcidr", "lancidr"),
+        applications: rp("classical", "applications"),
+    }
+
+    // ---- 3. 规则 (丢弃订阅自带 rules) ----
+    config.rules = [
+        // 私网网段置顶直连 (防 ruleset 异步加载期间泄漏)
+        "IP-CIDR,127.0.0.0/8,DIRECT,no-resolve",
+        "IP-CIDR,10.0.0.0/8,DIRECT,no-resolve",
+        "IP-CIDR,172.16.0.0/12,DIRECT,no-resolve",
+        "IP-CIDR,192.168.0.0/16,DIRECT,no-resolve",
+        "IP-CIDR,100.64.0.0/10,DIRECT,no-resolve",
+        "IP-CIDR,169.254.0.0/16,DIRECT,no-resolve",
+        "IP-CIDR,::1/128,DIRECT,no-resolve",
+        "IP-CIDR,fc00::/7,DIRECT,no-resolve",
+        "IP-CIDR,fe80::/10,DIRECT,no-resolve",
+
+        // 阻断 QUIC(UDP 443): 强制 YouTube/Google 等走更稳的 TCP, 修"需多次刷新才打开"
+        "AND,((NETWORK,udp),(DST-PORT,443)),REJECT",
+
+        // 公司/内网域名直连
+        ...COMPANY_DOMAINS.map((d) => "DOMAIN-SUFFIX," + d + ",DIRECT"),
+
+        // 微软/Windows 系统服务直连 (否则 .com/.net 被 tld-not-cn 误判走代理, 拖慢 Windows/Store)
+        "DOMAIN-SUFFIX,microsoft.com,DIRECT",
+        "DOMAIN-SUFFIX,windows.com,DIRECT",
+        "DOMAIN-SUFFIX,windows.net,DIRECT",
+        "DOMAIN-SUFFIX,windowsupdate.com,DIRECT",
+        "DOMAIN-SUFFIX,microsoftonline.com,DIRECT",
+        "DOMAIN-SUFFIX,live.com,DIRECT",
+        "DOMAIN-SUFFIX,office.com,DIRECT",
+        "DOMAIN-SUFFIX,office.net,DIRECT",
+        "DOMAIN-SUFFIX,msftconnecttest.com,DIRECT",
+        "DOMAIN-SUFFIX,msftncsi.com,DIRECT",
+        "DOMAIN-SUFFIX,microsoftapp.net,DIRECT",
+        "DOMAIN-SUFFIX,s-microsoft.com,DIRECT",
+        "DOMAIN-SUFFIX,msedge.net,DIRECT",
+        "DOMAIN-SUFFIX,msocdn.com,DIRECT",
+
+        // L大规则集 (标准顺序: direct/cncidr 在 gfw/tld-not-cn 之前)
+        "RULE-SET,applications,DIRECT",
+        "RULE-SET,private,DIRECT",
+        "RULE-SET,reject,REJECT",
+        "RULE-SET,icloud,DIRECT",
+        "RULE-SET,apple,DIRECT",
+        "RULE-SET,google," + PROXY,
+        "RULE-SET,proxy," + PROXY,
+        "RULE-SET,direct,DIRECT",
+        "RULE-SET,lancidr,DIRECT,no-resolve",
+        "RULE-SET,cncidr,DIRECT,no-resolve",
+        "RULE-SET,gfw," + PROXY,
+        "RULE-SET,tld-not-cn," + PROXY,
+        "RULE-SET,telegramcidr," + PROXY + ",no-resolve",
+        "GEOIP,LAN,DIRECT,no-resolve",
+        "GEOIP,CN,DIRECT,no-resolve",
+        "MATCH," + PROXY,
+    ]
+
+    // ---- 4. DNS ----
+    const dns = config.dns || {}
+    if (dns.enable === undefined) dns.enable = true
+    // 境外域名 → 谷歌 DNS。IP 直连 DoH + 末尾 #代理组 让查询走代理出口(防被墙、防污染)。
+    dns.nameserver = [
+        "https://8.8.8.8/dns-query#" + PROXY,
+        "https://8.8.4.4/dns-query#" + PROXY,
+    ]
+    // 直连域名(国内/公司/内网) → DHCP 下发的系统 DNS
+    dns["direct-nameserver"] = ["system://"]
+    dns["direct-nameserver-follow-policy"] = false
+    // 代理节点域名 & DoH 引导用国内 DNS 直接解析 (避免鸡生蛋)
+    dns["default-nameserver"] = ["223.5.5.5", "119.29.29.29"]
+    dns["proxy-server-nameserver"] = ["223.5.5.5", "119.29.29.29"]
+    // 公司/内网域名排除 fake-ip, 确保直连拿到真实内网 IP
+    const filter = dns["fake-ip-filter"] || []
+    for (const d of COMPANY_DOMAINS) {
+        if (!filter.includes("+." + d)) filter.push("+." + d)
+    }
+    dns["fake-ip-filter"] = filter
+    config.dns = dns
+
+    // ---- 5. 关闭 WebRTC 防泄漏 ----
+    config["webrtc"] = false
+
+    return config
+}
