@@ -138,6 +138,7 @@ function main(config) {
         "DOMAIN-SUFFIX,discord.gg," + PROXY,
         "DOMAIN-SUFFIX,discord.media," + PROXY,
         "DOMAIN-SUFFIX,discordstatus.com," + PROXY,
+        "DOMAIN-SUFFIX,discordcdn.com," + PROXY,
 
         // L大规则集 (标准顺序: direct/cncidr 在 gfw/tld-not-cn 之前)
         "RULE-SET,applications,DIRECT",
