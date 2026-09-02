@@ -1,0 +1,229 @@
+# Loyalsoldier v6.2 for v2rayN 7.24.9 / Mihomo
+# Copy to v2rayN\guiConfigs\Mixin.yaml and enable ClashUIItem.EnableMixinContent.
+# JSON is valid YAML; generated from v6.2-20260901-Script.js.
+{
+    "tcp-concurrent":  true,
+    "proxy-groups":  [
+                         {
+                             "name":  "⚡ 节点选择",
+                             "type":  "select",
+                             "include-all":  true,
+                             "exclude-filter":  "(?i)(到期|剩余|过期|有效期|官网|官方|订阅|套餐|重置|流量|距离|网址|客服|expire|traffic|reset)"
+                         }
+                     ],
+    "rule-providers":  {
+                           "reject":  {
+                                          "type":  "http",
+                                          "behavior":  "domain",
+                                          "url":  "https://testingcf.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/reject.txt",
+                                          "path":  "./ruleset/loyalsoldier/reject.yaml",
+                                          "interval":  86400
+                                      },
+                           "icloud":  {
+                                          "type":  "http",
+                                          "behavior":  "domain",
+                                          "url":  "https://testingcf.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/icloud.txt",
+                                          "path":  "./ruleset/loyalsoldier/icloud.yaml",
+                                          "interval":  86400
+                                      },
+                           "apple":  {
+                                         "type":  "http",
+                                         "behavior":  "domain",
+                                         "url":  "https://testingcf.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/apple.txt",
+                                         "path":  "./ruleset/loyalsoldier/apple.yaml",
+                                         "interval":  86400
+                                     },
+                           "google":  {
+                                          "type":  "http",
+                                          "behavior":  "domain",
+                                          "url":  "https://testingcf.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/google.txt",
+                                          "path":  "./ruleset/loyalsoldier/google.yaml",
+                                          "interval":  86400
+                                      },
+                           "proxy":  {
+                                         "type":  "http",
+                                         "behavior":  "domain",
+                                         "url":  "https://testingcf.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/proxy.txt",
+                                         "path":  "./ruleset/loyalsoldier/proxy.yaml",
+                                         "interval":  86400
+                                     },
+                           "direct":  {
+                                          "type":  "http",
+                                          "behavior":  "domain",
+                                          "url":  "https://testingcf.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/direct.txt",
+                                          "path":  "./ruleset/loyalsoldier/direct.yaml",
+                                          "interval":  86400
+                                      },
+                           "private":  {
+                                           "type":  "http",
+                                           "behavior":  "domain",
+                                           "url":  "https://testingcf.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/private.txt",
+                                           "path":  "./ruleset/loyalsoldier/private.yaml",
+                                           "interval":  86400
+                                       },
+                           "gfw":  {
+                                       "type":  "http",
+                                       "behavior":  "domain",
+                                       "url":  "https://testingcf.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/gfw.txt",
+                                       "path":  "./ruleset/loyalsoldier/gfw.yaml",
+                                       "interval":  86400
+                                   },
+                           "tld-not-cn":  {
+                                              "type":  "http",
+                                              "behavior":  "domain",
+                                              "url":  "https://testingcf.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/tld-not-cn.txt",
+                                              "path":  "./ruleset/loyalsoldier/tld-not-cn.yaml",
+                                              "interval":  86400
+                                          },
+                           "telegramcidr":  {
+                                                "type":  "http",
+                                                "behavior":  "ipcidr",
+                                                "url":  "https://testingcf.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/telegramcidr.txt",
+                                                "path":  "./ruleset/loyalsoldier/telegramcidr.yaml",
+                                                "interval":  86400
+                                            },
+                           "cncidr":  {
+                                          "type":  "http",
+                                          "behavior":  "ipcidr",
+                                          "url":  "https://testingcf.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/cncidr.txt",
+                                          "path":  "./ruleset/loyalsoldier/cncidr.yaml",
+                                          "interval":  86400
+                                      },
+                           "lancidr":  {
+                                           "type":  "http",
+                                           "behavior":  "ipcidr",
+                                           "url":  "https://testingcf.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/lancidr.txt",
+                                           "path":  "./ruleset/loyalsoldier/lancidr.yaml",
+                                           "interval":  86400
+                                       },
+                           "applications":  {
+                                                "type":  "http",
+                                                "behavior":  "classical",
+                                                "url":  "https://testingcf.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/applications.txt",
+                                                "path":  "./ruleset/loyalsoldier/applications.yaml",
+                                                "interval":  86400
+                                            }
+                       },
+    "rules":  [
+                  "IP-CIDR,127.0.0.0/8,DIRECT,no-resolve",
+                  "IP-CIDR,10.0.0.0/8,DIRECT,no-resolve",
+                  "IP-CIDR,172.16.0.0/12,DIRECT,no-resolve",
+                  "IP-CIDR,192.168.0.0/16,DIRECT,no-resolve",
+                  "IP-CIDR,100.64.0.0/10,DIRECT,no-resolve",
+                  "IP-CIDR,169.254.0.0/16,DIRECT,no-resolve",
+                  "IP-CIDR6,::1/128,DIRECT,no-resolve",
+                  "IP-CIDR6,fc00::/7,DIRECT,no-resolve",
+                  "IP-CIDR6,fe80::/10,DIRECT,no-resolve",
+                  "DOMAIN-SUFFIX,brightdata.com,⚡ 节点选择",
+                  "DOMAIN-SUFFIX,icanhazip.com,⚡ 节点选择",
+                  "DOMAIN-SUFFIX,ippure.com,⚡ 节点选择",
+                  "DOMAIN-SUFFIX,huinor.com,DIRECT",
+                  "DOMAIN-SUFFIX,huitone.com,DIRECT",
+                  "DOMAIN-SUFFIX,synology.me,DIRECT",
+                  "DOMAIN-SUFFIX,kunyi-gzzc.com,DIRECT",
+                  "DOMAIN-SUFFIX,kunyi-gz.com,DIRECT",
+                  "DOMAIN-SUFFIX,kunqi-dev.com,DIRECT",
+                  "DOMAIN-SUFFIX,kunqi-demo.com,DIRECT",
+                  "DOMAIN-SUFFIX,kunqi-test.com,DIRECT",
+                  "DOMAIN-SUFFIX,kunyi-pro,DIRECT",
+                  "DOMAIN-SUFFIX,kunqi-gz,DIRECT",
+                  "DOMAIN-SUFFIX,jiandui.online,DIRECT",
+                  "DOMAIN-SUFFIX,ooioo.work,DIRECT",
+                  "DOMAIN,login.live.com,DIRECT",
+                  "DOMAIN,account.live.com,DIRECT",
+                  "DOMAIN,login.microsoftonline.com,DIRECT",
+                  "DOMAIN,login.windows.net,DIRECT",
+                  "DOMAIN,sts.windows.net,DIRECT",
+                  "DOMAIN,clientconfig.passport.net,DIRECT",
+                  "DOMAIN-SUFFIX,msauth.net,DIRECT",
+                  "DOMAIN-SUFFIX,msftauth.net,DIRECT",
+                  "DOMAIN-SUFFIX,msauthimages.net,DIRECT",
+                  "DOMAIN-SUFFIX,msftauthimages.net,DIRECT",
+                  "DOMAIN-SUFFIX,microsoftonline-p.com,DIRECT",
+                  "DOMAIN-SUFFIX,windows.com,DIRECT",
+                  "DOMAIN-SUFFIX,windowsupdate.com,DIRECT",
+                  "DOMAIN-SUFFIX,msftconnecttest.com,DIRECT",
+                  "DOMAIN-SUFFIX,msftncsi.com,DIRECT",
+                  "DOMAIN-SUFFIX,microsoftapp.net,DIRECT",
+                  "DOMAIN-SUFFIX,s-microsoft.com,DIRECT",
+                  "DOMAIN-SUFFIX,msedge.net,DIRECT",
+                  "DOMAIN-SUFFIX,msocdn.com,DIRECT",
+                  "AND,((NETWORK,udp),(DST-PORT,443),(OR,((DOMAIN-SUFFIX,google.com),(DOMAIN-SUFFIX,googleapis.com),(DOMAIN-SUFFIX,gstatic.com),(DOMAIN-SUFFIX,googleusercontent.com),(DOMAIN-SUFFIX,ggpht.com),(DOMAIN-SUFFIX,googlevideo.com),(DOMAIN-SUFFIX,youtube.com),(DOMAIN-SUFFIX,youtu.be),(DOMAIN-SUFFIX,ytimg.com),(DOMAIN-SUFFIX,youtubei.googleapis.com),(DOMAIN-SUFFIX,youtube-nocookie.com),(DOMAIN-SUFFIX,googleadservices.com)))),REJECT",
+                  "DOMAIN-SUFFIX,google.com,⚡ 节点选择",
+                  "DOMAIN-SUFFIX,googleapis.com,⚡ 节点选择",
+                  "DOMAIN-SUFFIX,gstatic.com,⚡ 节点选择",
+                  "DOMAIN-SUFFIX,googleusercontent.com,⚡ 节点选择",
+                  "DOMAIN-SUFFIX,ggpht.com,⚡ 节点选择",
+                  "DOMAIN-SUFFIX,googlevideo.com,⚡ 节点选择",
+                  "DOMAIN-SUFFIX,youtube.com,⚡ 节点选择",
+                  "DOMAIN-SUFFIX,youtu.be,⚡ 节点选择",
+                  "DOMAIN-SUFFIX,ytimg.com,⚡ 节点选择",
+                  "DOMAIN-SUFFIX,youtubei.googleapis.com,⚡ 节点选择",
+                  "DOMAIN-SUFFIX,youtube-nocookie.com,⚡ 节点选择",
+                  "DOMAIN-SUFFIX,googleadservices.com,⚡ 节点选择",
+                  "DOMAIN-SUFFIX,discord.com,⚡ 节点选择",
+                  "DOMAIN-SUFFIX,discordapp.com,⚡ 节点选择",
+                  "DOMAIN-SUFFIX,discordapp.net,⚡ 节点选择",
+                  "DOMAIN-SUFFIX,discord.gg,⚡ 节点选择",
+                  "DOMAIN-SUFFIX,discord.media,⚡ 节点选择",
+                  "DOMAIN-SUFFIX,discordstatus.com,⚡ 节点选择",
+                  "DOMAIN-SUFFIX,discordcdn.com,⚡ 节点选择",
+                  "RULE-SET,applications,DIRECT",
+                  "RULE-SET,private,DIRECT",
+                  "RULE-SET,reject,REJECT",
+                  "RULE-SET,icloud,DIRECT",
+                  "RULE-SET,apple,DIRECT",
+                  "RULE-SET,google,⚡ 节点选择",
+                  "RULE-SET,proxy,⚡ 节点选择",
+                  "RULE-SET,direct,DIRECT",
+                  "RULE-SET,lancidr,DIRECT,no-resolve",
+                  "RULE-SET,cncidr,DIRECT,no-resolve",
+                  "RULE-SET,gfw,⚡ 节点选择",
+                  "RULE-SET,tld-not-cn,⚡ 节点选择",
+                  "RULE-SET,telegramcidr,⚡ 节点选择,no-resolve",
+                  "GEOIP,LAN,DIRECT,no-resolve",
+                  "GEOIP,CN,DIRECT",
+                  "MATCH,⚡ 节点选择"
+              ],
+    "dns":  {
+                "enable":  true,
+                "enhanced-mode":  "fake-ip",
+                "fake-ip-range":  "198.18.0.1/16",
+                "nameserver":  [
+                                   "https://8.8.8.8/dns-query#⚡ 节点选择",
+                                   "https://8.8.4.4/dns-query#⚡ 节点选择"
+                               ],
+                "direct-nameserver":  [
+                                          "system"
+                                      ],
+                "direct-nameserver-follow-policy":  false,
+                "default-nameserver":  [
+                                           "223.5.5.5",
+                                           "119.29.29.29"
+                                       ],
+                "proxy-server-nameserver":  [
+                                                "223.5.5.5",
+                                                "119.29.29.29"
+                                            ],
+                "cache-algorithm":  "arc",
+                "use-system-hosts":  true,
+                "fake-ip-filter":  [
+                                       "+.huinor.com",
+                                       "+.huitone.com",
+                                       "+.synology.me",
+                                       "+.kunyi-gzzc.com",
+                                       "+.kunyi-gz.com",
+                                       "+.kunqi-dev.com",
+                                       "+.kunqi-demo.com",
+                                       "+.kunqi-test.com",
+                                       "+.kunyi-pro",
+                                       "+.kunqi-gz",
+                                       "+.jiandui.online",
+                                       "+.ooioo.work",
+                                       "+.lan",
+                                       "localhost",
+                                       "+.local",
+                                       "+.home.arpa"
+                                   ]
+            }
+}
