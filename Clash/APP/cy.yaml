@@ -1,0 +1,349 @@
+# CN Fast + Global Proxy + AI — Clash APP v1.0
+# Author: ChungyuCheung
+# Updated: 2026-09-05
+# Target: https://clash.md (Hako / mihomo)
+# Source: Shadowrocket/cy.conf v5, blob 9eb18d00d14497dd47d7894d447d6d8b59c39082
+# 使用前：把下面 proxy-providers -> 机场订阅 -> url 替换成自己的 Clash/mihomo 订阅。
+# 这是完整配置，不是 Clash Verge 全局覆写脚本；原 cy.conf 未包含节点。
+# 保留 MEXC 菲律宾 / Bybit 台湾 / PayPal 英国 / AI 代理 / Apple 与国内直连。
+# 地区筛选拆为 filter + exclude-filter，避免 Go 正则不支持负向前瞻。
+# 空组设置 empty-fallback: REJECT；导入后务必确认三个地区组都已有对应节点。
+# 广告拦截默认关闭；启用方法见文件末尾注释。
+# DNS 使用 redir-host，保留原国内 DNS，避免与原保留 IP 直连规则冲突。
+# skip-proxy 中的自定义域名显式转为最前面的 DIRECT 规则。
+# 代理路径前拦截 UDP/443，近似原 block-quic=all-proxy；并非精准 QUIC 协议识别。
+# Apple Packet Tunnel 路由及 DNS 劫持由 APP 管理，不照搬 Shadowrocket TUN 字段。
+# MITM / STUN 响应伪装 / UDP 不支持时的回退开关无直接等价转换，未迁移。
+# 原文件没有 rewrite/script，本配置不解密 HTTPS；不保证原 STUN/WebRTC 行为。
+
+mode: rule
+log-level: info
+ipv6: false
+profile:
+  store-selected: true
+dns:
+  enable: true
+  ipv6: false
+  enhanced-mode: redir-host
+  use-hosts: true
+  default-nameserver:
+  - 223.5.5.5
+  - 119.29.29.29
+  nameserver:
+  - 223.5.5.5
+  - 119.29.29.29
+  proxy-server-nameserver:
+  - 223.5.5.5
+  - 119.29.29.29
+proxy-providers:
+  机场订阅:
+    type: http
+    url: https://example.com/REPLACE_WITH_YOUR_CLASH_SUBSCRIPTION
+    path: ./providers/airport.yaml
+    interval: 21600
+    health-check:
+      enable: true
+      url: https://www.gstatic.com/generate_204
+      interval: 600
+      timeout: 5000
+      lazy: true
+proxy-groups:
+- name: PROXY
+  type: select
+  use:
+  - 机场订阅
+  exclude-filter: (?i)(剩余|剩餘|流量|到期|官网|官網|套餐|重置|公告|客服|traffic|expire|remaining|reset)
+  empty-fallback: REJECT
+- name: 🇵🇭 菲律宾最快
+  type: url-test
+  use:
+  - 机场订阅
+  url: https://www.gstatic.com/generate_204
+  interval: 600
+  timeout: 5000
+  tolerance: 50
+  filter: (?i)^.*(🇵🇭|菲律宾|菲律賓|马尼拉|馬尼拉|宿务|宿霧|\b((PH|PHL|MNL|CEB|Philippines|Manila|Cebu)([-_ ]?[0-9]+)?)\b).*$
+  exclude-filter: (?i)(剩余|剩餘|流量|到期|官网|官網|套餐|重置|公告|客服|traffic|expire|remaining|reset)
+  empty-fallback: REJECT
+- name: 🇹🇼 台湾最快
+  type: url-test
+  use:
+  - 机场订阅
+  url: https://www.gstatic.com/generate_204
+  interval: 600
+  timeout: 5000
+  tolerance: 50
+  filter: (?i)^.*(🇹🇼|台湾|台灣|臺灣|台北|臺北|台中|臺中|高雄|新北|桃园|桃園|\b((TW|TWN|TPE|TSA|KHH|Taiwan|Taipei|Taichung|Kaohsiung)([-_ ]?[0-9]+)?)\b).*$
+  exclude-filter: (?i)(剩余|剩餘|流量|到期|官网|官網|套餐|重置|公告|客服|traffic|expire|remaining|reset)
+  empty-fallback: REJECT
+- name: 🇬🇧 英国最快
+  type: url-test
+  use:
+  - 机场订阅
+  url: https://www.gstatic.com/generate_204
+  interval: 600
+  timeout: 5000
+  tolerance: 50
+  filter: (?i)^.*(🇬🇧|英国|英國|伦敦|倫敦|曼彻斯特|曼徹斯特|\b((UK|GB|GBR|LHR|LGW|MAN|London|Manchester)([-_ ]?[0-9]+)?|United Kingdom|Britain)\b).*$
+  exclude-filter: (?i)(剩余|剩餘|流量|到期|官网|官網|套餐|重置|公告|客服|traffic|expire|remaining|reset)
+  empty-fallback: REJECT
+rule-providers:
+  Apple:
+    type: http
+    behavior: classical
+    format: text
+    url: https://testingcf.jsdelivr.net/gh/blackmatrix7/ios_rule_script@release/rule/Clash/Apple/Apple.list
+    path: ./rules/Apple.list
+    interval: 86400
+  ChinaMax:
+    type: http
+    behavior: classical
+    format: text
+    url: https://testingcf.jsdelivr.net/gh/blackmatrix7/ios_rule_script@release/rule/Clash/ChinaMax/ChinaMax.list
+    path: ./rules/ChinaMax.list
+    interval: 86400
+  Global:
+    type: http
+    behavior: classical
+    format: text
+    url: https://testingcf.jsdelivr.net/gh/blackmatrix7/ios_rule_script@release/rule/Clash/Global/Global.list
+    path: ./rules/Global.list
+    interval: 86400
+rules:
+- DOMAIN,localhost,DIRECT
+- DOMAIN,sequoia.apple.com,DIRECT
+- DOMAIN,seed-sequoia.siri.apple.com,DIRECT
+- DOMAIN-SUFFIX,local,DIRECT
+- DOMAIN-SUFFIX,lan,DIRECT
+- DOMAIN-SUFFIX,internal,DIRECT
+- DOMAIN-SUFFIX,ls.apple.com,DIRECT
+- DOMAIN-SUFFIX,huitone.com,DIRECT
+- DOMAIN-SUFFIX,huinor.com,DIRECT
+- DOMAIN-SUFFIX,synology.me,DIRECT
+- DOMAIN,register.appattest.apple.com,DIRECT
+- DOMAIN,captive.apple.com,DIRECT
+- DOMAIN-SUFFIX,ls.apple.com,DIRECT
+- DOMAIN-SUFFIX,mesu.apple.com,DIRECT
+- DOMAIN-SUFFIX,swscan.apple.com,DIRECT
+- DOMAIN-SUFFIX,gdmf.apple.com,DIRECT
+- DOMAIN-SUFFIX,ocsp.apple.com,DIRECT
+- DOMAIN-SUFFIX,ess.apple.com,DIRECT
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,mexc.com)),REJECT
+- DOMAIN-SUFFIX,mexc.com,🇵🇭 菲律宾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,mexc.link)),REJECT
+- DOMAIN-SUFFIX,mexc.link,🇵🇭 菲律宾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,mexc.app)),REJECT
+- DOMAIN-SUFFIX,mexc.app,🇵🇭 菲律宾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,mexc.live)),REJECT
+- DOMAIN-SUFFIX,mexc.live,🇵🇭 菲律宾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,mexc.zone)),REJECT
+- DOMAIN-SUFFIX,mexc.zone,🇵🇭 菲律宾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,mxc.com)),REJECT
+- DOMAIN-SUFFIX,mxc.com,🇵🇭 菲律宾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,mxc.ai)),REJECT
+- DOMAIN-SUFFIX,mxc.ai,🇵🇭 菲律宾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,mexc-api.com)),REJECT
+- DOMAIN-SUFFIX,mexc-api.com,🇵🇭 菲律宾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,mexcapi.com)),REJECT
+- DOMAIN-SUFFIX,mexcapi.com,🇵🇭 菲律宾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,mexccdn.com)),REJECT
+- DOMAIN-SUFFIX,mexccdn.com,🇵🇭 菲律宾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,mxcapi.com)),REJECT
+- DOMAIN-SUFFIX,mxcapi.com,🇵🇭 菲律宾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-KEYWORD,mexc)),REJECT
+- DOMAIN-KEYWORD,mexc,🇵🇭 菲律宾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit.com)),REJECT
+- DOMAIN-SUFFIX,bybit.com,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit.global)),REJECT
+- DOMAIN-SUFFIX,bybit.global,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit.biz)),REJECT
+- DOMAIN-SUFFIX,bybit.biz,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit.cloud)),REJECT
+- DOMAIN-SUFFIX,bybit.cloud,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit-global.com)),REJECT
+- DOMAIN-SUFFIX,bybit-global.com,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybitglobal.com)),REJECT
+- DOMAIN-SUFFIX,bybitglobal.com,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bytick.com)),REJECT
+- DOMAIN-SUFFIX,bytick.com,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit.nl)),REJECT
+- DOMAIN-SUFFIX,bybit.nl,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit.tr)),REJECT
+- DOMAIN-SUFFIX,bybit.tr,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit-tr.com)),REJECT
+- DOMAIN-SUFFIX,bybit-tr.com,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit.kz)),REJECT
+- DOMAIN-SUFFIX,bybit.kz,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybitgeorgia.ge)),REJECT
+- DOMAIN-SUFFIX,bybitgeorgia.ge,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit.ae)),REJECT
+- DOMAIN-SUFFIX,bybit.ae,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit.eu)),REJECT
+- DOMAIN-SUFFIX,bybit.eu,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit.id)),REJECT
+- DOMAIN-SUFFIX,bybit.id,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,byhkbit.com)),REJECT
+- DOMAIN-SUFFIX,byhkbit.com,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,byapis.com)),REJECT
+- DOMAIN-SUFFIX,byapis.com,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bycsi.com)),REJECT
+- DOMAIN-SUFFIX,bycsi.com,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bycbe.com)),REJECT
+- DOMAIN-SUFFIX,bycbe.com,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bymj.io)),REJECT
+- DOMAIN-SUFFIX,bymj.io,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,byffbb.com)),REJECT
+- DOMAIN-SUFFIX,byffbb.com,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit-aws.com)),REJECT
+- DOMAIN-SUFFIX,bybit-aws.com,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybdc6.com)),REJECT
+- DOMAIN-SUFFIX,bybdc6.com,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,byabcde.com)),REJECT
+- DOMAIN-SUFFIX,byabcde.com,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,byapps.net)),REJECT
+- DOMAIN-SUFFIX,byapps.net,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,byd3c3.com)),REJECT
+- DOMAIN-SUFFIX,byd3c3.com,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybits.org)),REJECT
+- DOMAIN-SUFFIX,bybits.org,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN,bybit-exchange.github.io)),REJECT
+- DOMAIN,bybit-exchange.github.io,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN,bybit.ada.support)),REJECT
+- DOMAIN,bybit.ada.support,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-KEYWORD,bybit)),REJECT
+- DOMAIN-KEYWORD,bybit,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-KEYWORD,bytick)),REJECT
+- DOMAIN-KEYWORD,bytick,🇹🇼 台湾最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,paypal.com)),REJECT
+- DOMAIN-SUFFIX,paypal.com,🇬🇧 英国最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,paypalobjects.com)),REJECT
+- DOMAIN-SUFFIX,paypalobjects.com,🇬🇧 英国最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,paypal.me)),REJECT
+- DOMAIN-SUFFIX,paypal.me,🇬🇧 英国最快
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,chatgpt.com)),REJECT
+- DOMAIN-SUFFIX,chatgpt.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,openai.com)),REJECT
+- DOMAIN-SUFFIX,openai.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,openaiapi.com)),REJECT
+- DOMAIN-SUFFIX,openaiapi.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,oaiusercontent.com)),REJECT
+- DOMAIN-SUFFIX,oaiusercontent.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,oaistatic.com)),REJECT
+- DOMAIN-SUFFIX,oaistatic.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,sora.com)),REJECT
+- DOMAIN-SUFFIX,sora.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,ai.com)),REJECT
+- DOMAIN-SUFFIX,ai.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,anthropic.com)),REJECT
+- DOMAIN-SUFFIX,anthropic.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,claude.ai)),REJECT
+- DOMAIN-SUFFIX,claude.ai,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,claudeusercontent.com)),REJECT
+- DOMAIN-SUFFIX,claudeusercontent.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,gemini.google.com)),REJECT
+- DOMAIN-SUFFIX,gemini.google.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,aistudio.google.com)),REJECT
+- DOMAIN-SUFFIX,aistudio.google.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,makersuite.google.com)),REJECT
+- DOMAIN-SUFFIX,makersuite.google.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,notebooklm.google.com)),REJECT
+- DOMAIN-SUFFIX,notebooklm.google.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,generativelanguage.googleapis.com)),REJECT
+- DOMAIN-SUFFIX,generativelanguage.googleapis.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,proactivebackend-pa.googleapis.com)),REJECT
+- DOMAIN-SUFFIX,proactivebackend-pa.googleapis.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,alkalimena-pa.clients6.google.com)),REJECT
+- DOMAIN-SUFFIX,alkalimena-pa.clients6.google.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,x.ai)),REJECT
+- DOMAIN-SUFFIX,x.ai,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,grok.com)),REJECT
+- DOMAIN-SUFFIX,grok.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN,copilot.microsoft.com)),REJECT
+- DOMAIN,copilot.microsoft.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,githubcopilot.com)),REJECT
+- DOMAIN-SUFFIX,githubcopilot.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,github.com)),REJECT
+- DOMAIN-SUFFIX,github.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,githubusercontent.com)),REJECT
+- DOMAIN-SUFFIX,githubusercontent.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,perplexity.ai)),REJECT
+- DOMAIN-SUFFIX,perplexity.ai,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,poe.com)),REJECT
+- DOMAIN-SUFFIX,poe.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,quora.com)),REJECT
+- DOMAIN-SUFFIX,quora.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,cursor.com)),REJECT
+- DOMAIN-SUFFIX,cursor.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,cursor.sh)),REJECT
+- DOMAIN-SUFFIX,cursor.sh,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,cursorapi.com)),REJECT
+- DOMAIN-SUFFIX,cursorapi.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,huggingface.co)),REJECT
+- DOMAIN-SUFFIX,huggingface.co,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,hf.co)),REJECT
+- DOMAIN-SUFFIX,hf.co,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,hf.space)),REJECT
+- DOMAIN-SUFFIX,hf.space,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,cdn-lfs.huggingface.co)),REJECT
+- DOMAIN-SUFFIX,cdn-lfs.huggingface.co,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,mistral.ai)),REJECT
+- DOMAIN-SUFFIX,mistral.ai,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,meta.ai)),REJECT
+- DOMAIN-SUFFIX,meta.ai,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,you.com)),REJECT
+- DOMAIN-SUFFIX,you.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,phind.com)),REJECT
+- DOMAIN-SUFFIX,phind.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,character.ai)),REJECT
+- DOMAIN-SUFFIX,character.ai,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,replicate.com)),REJECT
+- DOMAIN-SUFFIX,replicate.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,together.ai)),REJECT
+- DOMAIN-SUFFIX,together.ai,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,cohere.com)),REJECT
+- DOMAIN-SUFFIX,cohere.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,groq.com)),REJECT
+- DOMAIN-SUFFIX,groq.com,PROXY
+- AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,fireworks.ai)),REJECT
+- DOMAIN-SUFFIX,fireworks.ai,PROXY
+- DOMAIN-SUFFIX,local,DIRECT
+- DOMAIN-SUFFIX,lan,DIRECT
+- DOMAIN-SUFFIX,internal,DIRECT
+- IP-CIDR,0.0.0.0/8,DIRECT,no-resolve
+- IP-CIDR,10.0.0.0/8,DIRECT,no-resolve
+- IP-CIDR,100.64.0.0/10,DIRECT,no-resolve
+- IP-CIDR,127.0.0.0/8,DIRECT,no-resolve
+- IP-CIDR,169.254.0.0/16,DIRECT,no-resolve
+- IP-CIDR,172.16.0.0/12,DIRECT,no-resolve
+- IP-CIDR,192.0.0.0/24,DIRECT,no-resolve
+- IP-CIDR,192.0.2.0/24,DIRECT,no-resolve
+- IP-CIDR,192.88.99.0/24,DIRECT,no-resolve
+- IP-CIDR,192.168.0.0/16,DIRECT,no-resolve
+- IP-CIDR,198.18.0.0/15,DIRECT,no-resolve
+- IP-CIDR,198.51.100.0/24,DIRECT,no-resolve
+- IP-CIDR,203.0.113.0/24,DIRECT,no-resolve
+- IP-CIDR,216.36.82.250/32,DIRECT
+- IP-CIDR,224.0.0.0/4,DIRECT,no-resolve
+- IP-CIDR,255.255.255.255/32,DIRECT,no-resolve
+- IP-CIDR6,::1/128,DIRECT,no-resolve
+- IP-CIDR6,fc00::/7,DIRECT,no-resolve
+- IP-CIDR6,fe80::/10,DIRECT,no-resolve
+- RULE-SET,Apple,DIRECT
+- RULE-SET,ChinaMax,DIRECT
+- AND,((NETWORK,udp),(DST-PORT,443),(RULE-SET,Global)),REJECT
+- RULE-SET,Global,PROXY
+- GEOIP,CN,DIRECT
+- AND,((NETWORK,udp),(DST-PORT,443)),REJECT
+- MATCH,PROXY
+
+# 可选广告拦截（默认关闭）：
+# 1. 在 rule-providers 下新增 Advertising（与 Apple 同级）：
+#   Advertising:
+#     type: http
+#     behavior: classical
+#     format: text
+#     url: https://testingcf.jsdelivr.net/gh/blackmatrix7/ios_rule_script@release/rule/Clash/Advertising/Advertising.list
+#     path: ./rules/Advertising.list
+#     interval: 86400
+# 2. 在 rules 中 AI 规则之后、本地 IP 规则之前插入：
+#   - RULE-SET,Advertising,REJECT
