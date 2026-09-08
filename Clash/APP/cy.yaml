@@ -1,45 +1,42 @@
-# CN Fast + Global Proxy + AI — Clash APP v1.0
-# Author: ChungyuCheung
-# Updated: 2026-09-05
-# Target: https://clash.md (Hako / mihomo)
-# Source: Shadowrocket/cy.conf v5, blob 9eb18d00d14497dd47d7894d447d6d8b59c39082
-# 使用前：把下面 proxy-providers -> 机场订阅 -> url 替换成自己的 Clash/mihomo 订阅。
-# 这是完整配置，不是 Clash Verge 全局覆写脚本；原 cy.conf 未包含节点。
-# 保留 MEXC 菲律宾 / Bybit 台湾 / PayPal 英国 / AI 代理 / Apple 与国内直连。
-# 地区筛选拆为 filter + exclude-filter，避免 Go 正则不支持负向前瞻。
-# 空组设置 empty-fallback: REJECT；导入后务必确认三个地区组都已有对应节点。
-# 广告拦截默认关闭；启用方法见文件末尾注释。
-# DNS 使用 redir-host，保留原国内 DNS，避免与原保留 IP 直连规则冲突。
-# skip-proxy 中的自定义域名显式转为最前面的 DIRECT 规则。
-# 代理路径前拦截 UDP/443，近似原 block-quic=all-proxy；并非精准 QUIC 协议识别。
-# Apple Packet Tunnel 路由及 DNS 劫持由 APP 管理，不照搬 Shadowrocket TUN 字段。
-# MITM / STUN 响应伪装 / UDP 不支持时的回退开关无直接等价转换，未迁移。
-# 原文件没有 rewrite/script，本配置不解密 HTTPS；不保证原 STUN/WebRTC 行为。
-
+# CY Clash APP v2.0 | 2026-09-08 | Author: ChungyuCheung
+# 依据 https://clash.md/zh/guide/config/best-practice 的最小模板及 MRS 建议。
+# 完整配置方案：导入本地 YAML，在 Primary-VPS.url 填已有 Clash 格式节点来源。
+# 如要沿用 APP 已有配置的节点，请使用同目录 cy-rules.js，无需填写本文件。
+# 保留 cy.conf 的 MEXC 菲律宾 / Bybit 台湾 / PayPal 英国 / AI 代理策略。
+# 大型域名/IP 规则改用官网模板实际引用的 3 个 MRS；少量 keyword/IP 补充内联。
+# 补充规则基于 blackmatrix7 master 2026-09-08 快照，过滤 iOS 不匹配的 PROCESS 规则。
+# 去掉 Global 大型规则集，以国内直连后 MATCH 代理兜底；泛用覆盖随上游版本变化，非逐条等价。
+# 广告拦截关闭，Apple 直连保留原偏好，不采用社区模板的 APNs 代理策略。
+# 不设 TUN/监听端口/控制器，由 APP 管理；IPv6 关闭沿用 cy.conf。
+# fake-ip 模式不将 198.18.0.0/15 设为直连。
+# UDP/443 拦截近似原 block-quic=all-proxy；MITM/STUN伪装未迁移。
+# 地区组空时 REJECT，不自动切换至其他地区；请选择有对应节点的来源。
+# 通过静态检查，尚未在你的 iPhone 上验证。
 mode: rule
-log-level: info
+log-level: warning
 ipv6: false
 profile:
   store-selected: true
+  store-fake-ip: true
 dns:
   enable: true
   ipv6: false
-  enhanced-mode: redir-host
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
   use-hosts: true
-  default-nameserver:
-  - 223.5.5.5
-  - 119.29.29.29
-  nameserver:
-  - 223.5.5.5
-  - 119.29.29.29
-  proxy-server-nameserver:
-  - 223.5.5.5
-  - 119.29.29.29
+  fake-ip-filter:
+  - +.lan
+  - +.local
+  - +.internal
+  - localhost
+  - +.huitone.com
+  - +.huinor.com
+  - +.synology.me
 proxy-providers:
-  机场订阅:
+  Primary-VPS:
     type: http
-    url: https://example.com/REPLACE_WITH_YOUR_CLASH_SUBSCRIPTION
-    path: ./providers/airport.yaml
+    url: "" # 仅在手机内填入已有节点来源地址
+    path: ./providers/primary.yaml
     interval: 21600
     health-check:
       enable: true
@@ -51,13 +48,13 @@ proxy-groups:
 - name: PROXY
   type: select
   use:
-  - 机场订阅
+  - Primary-VPS
   exclude-filter: (?i)(剩余|剩餘|流量|到期|官网|官網|套餐|重置|公告|客服|traffic|expire|remaining|reset)
   empty-fallback: REJECT
 - name: 🇵🇭 菲律宾最快
   type: url-test
   use:
-  - 机场订阅
+  - Primary-VPS
   url: https://www.gstatic.com/generate_204
   interval: 600
   timeout: 5000
@@ -68,7 +65,7 @@ proxy-groups:
 - name: 🇹🇼 台湾最快
   type: url-test
   use:
-  - 机场订阅
+  - Primary-VPS
   url: https://www.gstatic.com/generate_204
   interval: 600
   timeout: 5000
@@ -79,7 +76,7 @@ proxy-groups:
 - name: 🇬🇧 英国最快
   type: url-test
   use:
-  - 机场订阅
+  - Primary-VPS
   url: https://www.gstatic.com/generate_204
   interval: 600
   timeout: 5000
@@ -88,27 +85,27 @@ proxy-groups:
   exclude-filter: (?i)(剩余|剩餘|流量|到期|官网|官網|套餐|重置|公告|客服|traffic|expire|remaining|reset)
   empty-fallback: REJECT
 rule-providers:
-  Apple:
+  CY-Apple_Domain:
     type: http
-    behavior: classical
-    format: text
-    url: https://testingcf.jsdelivr.net/gh/blackmatrix7/ios_rule_script@release/rule/Clash/Apple/Apple.list
-    path: ./rules/Apple.list
+    behavior: domain
+    format: mrs
     interval: 86400
-  ChinaMax:
+    url: https://raw.githubusercontent.com/Sydney-Moses/Network-Profiles/refs/heads/main/MRS/Apple_Domain.mrs
+    path: ./rules/cy-Apple_Domain.mrs
+  CY-ChinaMax_Domain:
     type: http
-    behavior: classical
-    format: text
-    url: https://testingcf.jsdelivr.net/gh/blackmatrix7/ios_rule_script@release/rule/Clash/ChinaMax/ChinaMax.list
-    path: ./rules/ChinaMax.list
+    behavior: domain
+    format: mrs
     interval: 86400
-  Global:
+    url: https://raw.githubusercontent.com/Sydney-Moses/Network-Profiles/refs/heads/main/MRS/ChinaMax_Domain.mrs
+    path: ./rules/cy-ChinaMax_Domain.mrs
+  CY-ChinaMax_IP:
     type: http
-    behavior: classical
-    format: text
-    url: https://testingcf.jsdelivr.net/gh/blackmatrix7/ios_rule_script@release/rule/Clash/Global/Global.list
-    path: ./rules/Global.list
+    behavior: ipcidr
+    format: mrs
     interval: 86400
+    url: https://raw.githubusercontent.com/Sydney-Moses/Network-Profiles/refs/heads/main/MRS/ChinaMax_IP.mrs
+    path: ./rules/cy-ChinaMax_IP.mrs
 rules:
 - DOMAIN,localhost,DIRECT
 - DOMAIN,sequoia.apple.com,DIRECT
@@ -122,7 +119,6 @@ rules:
 - DOMAIN-SUFFIX,synology.me,DIRECT
 - DOMAIN,register.appattest.apple.com,DIRECT
 - DOMAIN,captive.apple.com,DIRECT
-- DOMAIN-SUFFIX,ls.apple.com,DIRECT
 - DOMAIN-SUFFIX,mesu.apple.com,DIRECT
 - DOMAIN-SUFFIX,swscan.apple.com,DIRECT
 - DOMAIN-SUFFIX,gdmf.apple.com,DIRECT
@@ -306,9 +302,6 @@ rules:
 - DOMAIN-SUFFIX,groq.com,PROXY
 - AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,fireworks.ai)),REJECT
 - DOMAIN-SUFFIX,fireworks.ai,PROXY
-- DOMAIN-SUFFIX,local,DIRECT
-- DOMAIN-SUFFIX,lan,DIRECT
-- DOMAIN-SUFFIX,internal,DIRECT
 - IP-CIDR,0.0.0.0/8,DIRECT,no-resolve
 - IP-CIDR,10.0.0.0/8,DIRECT,no-resolve
 - IP-CIDR,100.64.0.0/10,DIRECT,no-resolve
@@ -319,7 +312,6 @@ rules:
 - IP-CIDR,192.0.2.0/24,DIRECT,no-resolve
 - IP-CIDR,192.88.99.0/24,DIRECT,no-resolve
 - IP-CIDR,192.168.0.0/16,DIRECT,no-resolve
-- IP-CIDR,198.18.0.0/15,DIRECT,no-resolve
 - IP-CIDR,198.51.100.0/24,DIRECT,no-resolve
 - IP-CIDR,203.0.113.0/24,DIRECT,no-resolve
 - IP-CIDR,216.36.82.250/32,DIRECT
@@ -328,22 +320,42 @@ rules:
 - IP-CIDR6,::1/128,DIRECT,no-resolve
 - IP-CIDR6,fc00::/7,DIRECT,no-resolve
 - IP-CIDR6,fe80::/10,DIRECT,no-resolve
-- RULE-SET,Apple,DIRECT
-- RULE-SET,ChinaMax,DIRECT
-- AND,((NETWORK,udp),(DST-PORT,443),(RULE-SET,Global)),REJECT
-- RULE-SET,Global,PROXY
+- DOMAIN-KEYWORD,apple-support.akadns.net,DIRECT
+- DOMAIN-KEYWORD,apple.com.akadns.net,DIRECT
+- DOMAIN-KEYWORD,apple.com.edgekey.net,DIRECT
+- DOMAIN-KEYWORD,buy.itunes.apple.com,DIRECT
+- DOMAIN-KEYWORD,smp-device,DIRECT
+- DOMAIN-KEYWORD,testflight,DIRECT
+- DOMAIN-KEYWORD,icloud.com.akadns.net,DIRECT
+- IP-CIDR,139.178.128.0/18,DIRECT
+- IP-CIDR,144.178.0.0/19,DIRECT
+- IP-CIDR,144.178.36.0/22,DIRECT
+- IP-CIDR,144.178.48.0/20,DIRECT
+- IP-CIDR,17.0.0.0/8,DIRECT
+- IP-CIDR,192.35.50.0/24,DIRECT
+- IP-CIDR,198.183.17.0/24,DIRECT
+- IP-CIDR,205.180.175.0/24,DIRECT
+- IP-CIDR,63.92.224.0/19,DIRECT
+- IP-CIDR,65.199.22.0/23,DIRECT
+- IP-CIDR6,2403:300::/32,DIRECT
+- IP-CIDR6,2620:149::/32,DIRECT
+- IP-CIDR6,2a01:b740::/32,DIRECT
+- RULE-SET,CY-Apple_Domain,DIRECT
+- DOMAIN-KEYWORD,.tmall.com,DIRECT
+- DOMAIN-KEYWORD,alicdn,DIRECT
+- DOMAIN-KEYWORD,alipay,DIRECT
+- DOMAIN-KEYWORD,aliyun,DIRECT
+- DOMAIN-KEYWORD,baidu,DIRECT
+- DOMAIN-KEYWORD,beplay,DIRECT
+- DOMAIN-KEYWORD,officecdn,DIRECT
+- DOMAIN-KEYWORD,taobao,DIRECT
+- DOMAIN-KEYWORD,bilibili,DIRECT
+- DOMAIN-KEYWORD,qiyi,DIRECT
+- DOMAIN-KEYWORD,hnagroup,DIRECT
+- DOMAIN-KEYWORD,stripe,DIRECT
+- DOMAIN-KEYWORD,weibo,DIRECT
+- RULE-SET,CY-ChinaMax_Domain,DIRECT
+- RULE-SET,CY-ChinaMax_IP,DIRECT
 - GEOIP,CN,DIRECT
 - AND,((NETWORK,udp),(DST-PORT,443)),REJECT
 - MATCH,PROXY
-
-# 可选广告拦截（默认关闭）：
-# 1. 在 rule-providers 下新增 Advertising（与 Apple 同级）：
-#   Advertising:
-#     type: http
-#     behavior: classical
-#     format: text
-#     url: https://testingcf.jsdelivr.net/gh/blackmatrix7/ios_rule_script@release/rule/Clash/Advertising/Advertising.list
-#     path: ./rules/Advertising.list
-#     interval: 86400
-# 2. 在 rules 中 AI 规则之后、本地 IP 规则之前插入：
-#   - RULE-SET,Advertising,REJECT
