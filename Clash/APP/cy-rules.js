@@ -1,30 +1,20 @@
-// CY 分流覆写 v1.0 — Clash APP (clash.md)
-// Author: ChungyuCheung | Updated: 2026-09-06
-// 来源: Shadowrocket/cy.conf v5 (9eb18d00d14497dd47d7894d447d6d8b59c39082)
-// 用途: 应用于 NovixLink 等已有配置，无需填写或修改节点订阅。
-// 使用: 高级覆写 -> 脚本 -> 管理本地脚本 -> + -> URL 导入本文件，
-// 保存脚本，返回高级覆写选中本脚本并保存，使用规则模式启动。
-// 保留现有 proxies / proxy-providers / DNS / TUN 和其他设置；
-// 保留原策略组以免其他字段引用失效，新增 CY 前缀组，替换运行时 rules。
-// MEXC 菲律宾、Bybit 台湾、PayPal 英国测速；AI/海外走 CY 节点选择。
-// 自动从当前配置的节点及 providers 筛选；空组 REJECT，地区组没有节点时对应业务不可用。
-// include-all 不导入原策略组，原节点名称必须包含对应地区标识。
-// Apple、国内、原 skip-proxy 自定义域名直连；广告拦截默认关闭。
-// 用代理分流前的 UDP/443 拒绝规则近似 block-quic=all-proxy，不是精准协议检测。
-// 未转换 MITM / STUN 响应伪装 / UDP不支持回退开关 / 系统旁路字段。
-// 本脚本只迁移分流；当前配置的 DNS、IPv6、TUN 仍按已有配置运行。
-// URL 导入会下载本地副本；仓库脚本更新后可重新导入。
-// 切回“标准”模式可恢复原配置的分流方式。
-
+// CY 分流脚本 v2.0 | Author: ChungyuCheung | 2026-09-08
+// 依据 https://clash.md/zh/guide/config/best-practice 的 MRS/减少重复规则建议。
+// 沿用当前配置的节点、节点来源、DNS、TUN；无需再填写订阅。
+// 覆写 -> 高级 -> 脚本 -> 管理本地脚本 -> URL 重新导入，保存并选中。
+// 3 个官网模板引用的 MRS + 少量内联 keyword/IP，广告默认关闭。
+// 清除旧 rules 及不再被其他配置引用的 rule-providers，避免叠加大文本规则。
+// 保留现有策略组以兼容 DNS 等字段对组名的引用；新增 CY 前缀分流组。
+// Global 泛用规则集改由国内规则后的 MATCH 兜底，泛用覆盖非原列表逐条等价。
+// 移除 198.18.0.0/15 直连规则，避免影响继承的 fake-ip DNS。
+// 保留 MEXC 菲律宾、Bybit 台湾、PayPal 英国、AI 代理、Apple/国内直连。
+// 节点须有对应地区标识，地区组为空会 REJECT；不跨地区回退。
+// UDP/443 拦截近似 QUIC 阻断；MITM/STUN伪装不迁移。
+// 规则为当前上游快照，更新脚本需重新导入。本地检查不等于手机真机验证。
 function main(config) {
-  if (!config || typeof config !== "object" || Array.isArray(config)) {
-    throw new Error("CY: 配置对象无效");
-  }
+  if (!config || typeof config !== "object" || Array.isArray(config)) throw new Error("CY: 配置无效");
   const nodes = Array.isArray(config.proxies) ? config.proxies : [];
-  const sources = config["proxy-providers"] || {};
-  if (!nodes.length && !Object.keys(sources).length) {
-    throw new Error("CY: 当前配置没有节点，请在已有节点的 NovixLink 配置中使用本脚本");
-  }
+  if (!nodes.length && !Object.keys(config["proxy-providers"] || {}).length) throw new Error("CY: 请在已有节点的配置中使用");
   const groups = [
   {
     "name": "CY 节点选择",
@@ -71,29 +61,29 @@ function main(config) {
   }
 ];
   const providers = {
-  "CY-Apple": {
+  "CY-Apple_Domain": {
     "type": "http",
-    "behavior": "classical",
-    "format": "text",
-    "url": "https://testingcf.jsdelivr.net/gh/blackmatrix7/ios_rule_script@release/rule/Clash/Apple/Apple.list",
-    "path": "./rules/cy-Apple.list",
-    "interval": 86400
+    "behavior": "domain",
+    "format": "mrs",
+    "interval": 86400,
+    "url": "https://raw.githubusercontent.com/Sydney-Moses/Network-Profiles/refs/heads/main/MRS/Apple_Domain.mrs",
+    "path": "./rules/cy-Apple_Domain.mrs"
   },
-  "CY-ChinaMax": {
+  "CY-ChinaMax_Domain": {
     "type": "http",
-    "behavior": "classical",
-    "format": "text",
-    "url": "https://testingcf.jsdelivr.net/gh/blackmatrix7/ios_rule_script@release/rule/Clash/ChinaMax/ChinaMax.list",
-    "path": "./rules/cy-ChinaMax.list",
-    "interval": 86400
+    "behavior": "domain",
+    "format": "mrs",
+    "interval": 86400,
+    "url": "https://raw.githubusercontent.com/Sydney-Moses/Network-Profiles/refs/heads/main/MRS/ChinaMax_Domain.mrs",
+    "path": "./rules/cy-ChinaMax_Domain.mrs"
   },
-  "CY-Global": {
+  "CY-ChinaMax_IP": {
     "type": "http",
-    "behavior": "classical",
-    "format": "text",
-    "url": "https://testingcf.jsdelivr.net/gh/blackmatrix7/ios_rule_script@release/rule/Clash/Global/Global.list",
-    "path": "./rules/cy-Global.list",
-    "interval": 86400
+    "behavior": "ipcidr",
+    "format": "mrs",
+    "interval": 86400,
+    "url": "https://raw.githubusercontent.com/Sydney-Moses/Network-Profiles/refs/heads/main/MRS/ChinaMax_IP.mrs",
+    "path": "./rules/cy-ChinaMax_IP.mrs"
   }
 };
   const rules = [
@@ -109,7 +99,6 @@ function main(config) {
   "DOMAIN-SUFFIX,synology.me,DIRECT",
   "DOMAIN,register.appattest.apple.com,DIRECT",
   "DOMAIN,captive.apple.com,DIRECT",
-  "DOMAIN-SUFFIX,ls.apple.com,DIRECT",
   "DOMAIN-SUFFIX,mesu.apple.com,DIRECT",
   "DOMAIN-SUFFIX,swscan.apple.com,DIRECT",
   "DOMAIN-SUFFIX,gdmf.apple.com,DIRECT",
@@ -293,9 +282,6 @@ function main(config) {
   "DOMAIN-SUFFIX,groq.com,CY 节点选择",
   "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,fireworks.ai)),REJECT",
   "DOMAIN-SUFFIX,fireworks.ai,CY 节点选择",
-  "DOMAIN-SUFFIX,local,DIRECT",
-  "DOMAIN-SUFFIX,lan,DIRECT",
-  "DOMAIN-SUFFIX,internal,DIRECT",
   "IP-CIDR,0.0.0.0/8,DIRECT,no-resolve",
   "IP-CIDR,10.0.0.0/8,DIRECT,no-resolve",
   "IP-CIDR,100.64.0.0/10,DIRECT,no-resolve",
@@ -306,7 +292,6 @@ function main(config) {
   "IP-CIDR,192.0.2.0/24,DIRECT,no-resolve",
   "IP-CIDR,192.88.99.0/24,DIRECT,no-resolve",
   "IP-CIDR,192.168.0.0/16,DIRECT,no-resolve",
-  "IP-CIDR,198.18.0.0/15,DIRECT,no-resolve",
   "IP-CIDR,198.51.100.0/24,DIRECT,no-resolve",
   "IP-CIDR,203.0.113.0/24,DIRECT,no-resolve",
   "IP-CIDR,216.36.82.250/32,DIRECT",
@@ -315,25 +300,58 @@ function main(config) {
   "IP-CIDR6,::1/128,DIRECT,no-resolve",
   "IP-CIDR6,fc00::/7,DIRECT,no-resolve",
   "IP-CIDR6,fe80::/10,DIRECT,no-resolve",
-  "RULE-SET,CY-Apple,DIRECT",
-  "RULE-SET,CY-ChinaMax,DIRECT",
-  "AND,((NETWORK,udp),(DST-PORT,443),(RULE-SET,CY-Global)),REJECT",
-  "RULE-SET,CY-Global,CY 节点选择",
+  "DOMAIN-KEYWORD,apple-support.akadns.net,DIRECT",
+  "DOMAIN-KEYWORD,apple.com.akadns.net,DIRECT",
+  "DOMAIN-KEYWORD,apple.com.edgekey.net,DIRECT",
+  "DOMAIN-KEYWORD,buy.itunes.apple.com,DIRECT",
+  "DOMAIN-KEYWORD,smp-device,DIRECT",
+  "DOMAIN-KEYWORD,testflight,DIRECT",
+  "DOMAIN-KEYWORD,icloud.com.akadns.net,DIRECT",
+  "IP-CIDR,139.178.128.0/18,DIRECT",
+  "IP-CIDR,144.178.0.0/19,DIRECT",
+  "IP-CIDR,144.178.36.0/22,DIRECT",
+  "IP-CIDR,144.178.48.0/20,DIRECT",
+  "IP-CIDR,17.0.0.0/8,DIRECT",
+  "IP-CIDR,192.35.50.0/24,DIRECT",
+  "IP-CIDR,198.183.17.0/24,DIRECT",
+  "IP-CIDR,205.180.175.0/24,DIRECT",
+  "IP-CIDR,63.92.224.0/19,DIRECT",
+  "IP-CIDR,65.199.22.0/23,DIRECT",
+  "IP-CIDR6,2403:300::/32,DIRECT",
+  "IP-CIDR6,2620:149::/32,DIRECT",
+  "IP-CIDR6,2a01:b740::/32,DIRECT",
+  "RULE-SET,CY-Apple_Domain,DIRECT",
+  "DOMAIN-KEYWORD,.tmall.com,DIRECT",
+  "DOMAIN-KEYWORD,alicdn,DIRECT",
+  "DOMAIN-KEYWORD,alipay,DIRECT",
+  "DOMAIN-KEYWORD,aliyun,DIRECT",
+  "DOMAIN-KEYWORD,baidu,DIRECT",
+  "DOMAIN-KEYWORD,beplay,DIRECT",
+  "DOMAIN-KEYWORD,officecdn,DIRECT",
+  "DOMAIN-KEYWORD,taobao,DIRECT",
+  "DOMAIN-KEYWORD,bilibili,DIRECT",
+  "DOMAIN-KEYWORD,qiyi,DIRECT",
+  "DOMAIN-KEYWORD,hnagroup,DIRECT",
+  "DOMAIN-KEYWORD,stripe,DIRECT",
+  "DOMAIN-KEYWORD,weibo,DIRECT",
+  "RULE-SET,CY-ChinaMax_Domain,DIRECT",
+  "RULE-SET,CY-ChinaMax_IP,DIRECT",
   "GEOIP,CN,DIRECT",
   "AND,((NETWORK,udp),(DST-PORT,443)),REJECT",
   "MATCH,CY 节点选择"
 ];
-  const names = groups.map(function (g) { return g.name; });
-  nodes.forEach(function (node) {
-    if (node && names.indexOf(node.name) !== -1) {
-      throw new Error("CY: 节点名称与 CY 策略组冲突，请重命名节点: " + node.name);
-    }
+  const names = groups.map(function(g) { return g.name; });
+  nodes.forEach(function(n) { if (names.indexOf(n.name) >= 0) throw new Error("CY: 节点与策略组重名: " + n.name); });
+  config["proxy-groups"] = (config["proxy-groups"] || []).filter(function(g) { return names.indexOf(g.name) < 0; }).concat(groups);
+  // 保守保留 DNS / sub-rules 等其他字段实际引用的旧规则集。
+  const other = {};
+  Object.keys(config).forEach(function(k) { if (k !== "rules" && k !== "rule-providers") other[k] = config[k]; });
+  const references = JSON.stringify(other);
+  const kept = {};
+  Object.keys(config["rule-providers"] || {}).forEach(function(k) {
+    if (references.indexOf(k) >= 0) kept[k] = config["rule-providers"][k];
   });
-  const existing = Array.isArray(config["proxy-groups"]) ? config["proxy-groups"] : [];
-  config["proxy-groups"] = existing.filter(function (g) {
-    return names.indexOf(g.name) === -1;
-  }).concat(groups);
-  config["rule-providers"] = Object.assign({}, config["rule-providers"] || {}, providers);
+  config["rule-providers"] = Object.assign(kept, providers);
   config.rules = rules;
   config.mode = "rule";
   return config;
