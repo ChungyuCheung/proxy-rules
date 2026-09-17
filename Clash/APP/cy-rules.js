@@ -1,354 +1,301 @@
-// CY 分流脚本 v2.0 | Author: ChungyuCheung | 2026-09-08
-// 依据 https://clash.md/zh/guide/config/best-practice 的 MRS/减少重复规则建议。
+// CY 分流脚本 v2.1 | Author: ChungyuCheung | 2026-09-17
+// 依据 https://clash.md/zh/guide/config/best-practice
 // 沿用当前配置的节点、节点来源、DNS、TUN；无需再填写订阅。
-// 覆写 -> 高级 -> 脚本 -> 管理本地脚本 -> URL 重新导入，保存并选中。
-// 3 个官网模板引用的 MRS + 少量内联 keyword/IP，广告默认关闭。
-// 清除旧 rules 及不再被其他配置引用的 rule-providers，避免叠加大文本规则。
-// 保留现有策略组以兼容 DNS 等字段对组名的引用；新增 CY 前缀分流组。
-// Global 泛用规则集改由国内规则后的 MATCH 兜底，泛用覆盖非原列表逐条等价。
-// 移除 198.18.0.0/15 直连规则，避免影响继承的 fake-ip DNS。
-// 保留 MEXC 菲律宾、Bybit 台湾、PayPal 英国、AI 代理、Apple/国内直连。
-// 节点须有对应地区标识，地区组为空会 REJECT；不跨地区回退。
-// UDP/443 拦截近似 QUIC 阻断；MITM/STUN伪装不迁移。
-// 规则为当前上游快照，更新脚本需重新导入。本地检查不等于手机真机验证。
+// 用法：覆写 -> 高级 -> 脚本 -> 管理本地脚本 -> 用下方 raw URL 导入，保存并选中。
+//
+// v2.1
+// - Bybit EU / NL 走欧盟节点；全球站仍走台湾。共用 CDN 进「CY Bybit」组，默认可选手动切。
+// - 用列表生成规则，去掉成对重复的 QUIC 拦截行。
+// - 公司域与 Verge 脚本对齐；修正 tmall 规则写法。
+// - 地区组为空 REJECT，不跨地区回退。节点名需带对应地区标识。
+const INFO_FILTER = "(?i)(剩余|剩餘|流量|到期|官网|官網|套餐|重置|公告|客服|traffic|expire|remaining|reset)";
+const TEST_URL = "https://www.gstatic.com/generate_204";
+
+const G_SELECT = "CY 节点选择";
+const G_PH = "CY 🇵🇭 菲律宾最快";
+const G_TW = "CY 🇹🇼 台湾最快";
+const G_UK = "CY 🇬🇧 英国最快";
+const G_EU = "CY 🇪🇺 欧盟最快";
+const G_BYBIT = "CY Bybit";
+
+const COMPANY_DOMAINS = [
+  "huitone.com",
+  "huinor.com",
+  "synology.me",
+  "kunyi-gzzc.com",
+  "kunyi-gz.com",
+  "kunqi-dev.com",
+  "kunqi-demo.com",
+  "kunqi-test.com",
+  "kunyi-pro",
+  "kunqi-gz",
+  "jiandui.online",
+  "ooioo.work"
+];
+
+const MEXC_SUFFIX = [
+  "mexc.com", "mexc.link", "mexc.app", "mexc.live", "mexc.zone",
+  "mxc.com", "mxc.ai", "mexc-api.com", "mexcapi.com", "mexccdn.com", "mxcapi.com"
+];
+
+// Bybit EU（MiCA / bybit.eu）必须用 EEA IP，不能再走台湾。
+const BYBIT_EU_SUFFIX = ["bybit.eu", "bybit.nl"];
+const BYBIT_EU_EXACT = ["api.bybit.eu", "testnet.bybit.eu", "www.bybit.eu"];
+
+// 全球站。bybit.eu 已拆出，不能再用宽泛 keyword 盖回去。
+const BYBIT_GLOBAL_SUFFIX = [
+  "bybit.com", "bybit.global", "bybit.biz", "bybit.cloud",
+  "bybit-global.com", "bybitglobal.com", "bytick.com",
+  "bybit.tr", "bybit-tr.com", "bybit.kz", "bybitgeorgia.ge",
+  "bybit.ae", "bybit.id", "byhkbit.com"
+];
+const BYBIT_GLOBAL_EXACT = ["bybit-exchange.github.io", "bybit.ada.support"];
+
+// 全球站与 EU 站都会打到的 CDN / API。默认进可选手动组，优先欧盟。
+const BYBIT_SHARED_SUFFIX = [
+  "byapis.com", "bycsi.com", "bycbe.com", "bymj.io", "byffbb.com",
+  "bybit-aws.com", "bybdc6.com", "byabcde.com", "byapps.net",
+  "byd3c3.com", "bybits.org"
+];
+
+const PAYPAL_SUFFIX = ["paypal.com", "paypalobjects.com", "paypal.me"];
+
+const AI_SUFFIX = [
+  "chatgpt.com", "openai.com", "openaiapi.com", "oaiusercontent.com", "oaistatic.com",
+  "sora.com", "ai.com", "anthropic.com", "claude.ai", "claudeusercontent.com",
+  "gemini.google.com", "aistudio.google.com", "makersuite.google.com", "notebooklm.google.com",
+  "generativelanguage.googleapis.com", "proactivebackend-pa.googleapis.com",
+  "x.ai", "grok.com", "githubcopilot.com", "github.com", "githubusercontent.com",
+  "perplexity.ai", "poe.com", "quora.com", "cursor.com", "cursor.sh", "cursorapi.com",
+  "huggingface.co", "hf.co", "hf.space", "cdn-lfs.huggingface.co",
+  "mistral.ai", "meta.ai", "you.com", "phind.com", "character.ai",
+  "replicate.com", "together.ai", "cohere.com", "groq.com", "fireworks.ai"
+];
+const AI_EXACT = ["copilot.microsoft.com", "alkalimena-pa.clients6.google.com"];
+
+function urlTestGroup(name, filter) {
+  return {
+    name: name,
+    type: "url-test",
+    url: TEST_URL,
+    interval: 600,
+    timeout: 5000,
+    tolerance: 50,
+    filter: filter,
+    "exclude-filter": INFO_FILTER,
+    "empty-fallback": "REJECT",
+    "include-all": true
+  };
+}
+
+function blockQuicThen(matcher, policy) {
+  return [
+    "AND,((NETWORK,udp),(DST-PORT,443),(" + matcher + ")),REJECT",
+    matcher + "," + policy
+  ];
+}
+
+function suffixRules(list, policy) {
+  const out = [];
+  for (let i = 0; i < list.length; i++) {
+    Array.prototype.push.apply(out, blockQuicThen("DOMAIN-SUFFIX," + list[i], policy));
+  }
+  return out;
+}
+
+function exactRules(list, policy) {
+  const out = [];
+  for (let i = 0; i < list.length; i++) {
+    Array.prototype.push.apply(out, blockQuicThen("DOMAIN," + list[i], policy));
+  }
+  return out;
+}
+
+function keywordRules(list, policy) {
+  const out = [];
+  for (let i = 0; i < list.length; i++) {
+    Array.prototype.push.apply(out, blockQuicThen("DOMAIN-KEYWORD," + list[i], policy));
+  }
+  return out;
+}
+
 function main(config) {
-  if (!config || typeof config !== "object" || Array.isArray(config)) throw new Error("CY: 配置无效");
+  if (!config || typeof config !== "object" || Array.isArray(config)) {
+    throw new Error("CY: 配置无效");
+  }
   const nodes = Array.isArray(config.proxies) ? config.proxies : [];
-  if (!nodes.length && !Object.keys(config["proxy-providers"] || {}).length) throw new Error("CY: 请在已有节点的配置中使用");
+  if (!nodes.length && !Object.keys(config["proxy-providers"] || {}).length) {
+    throw new Error("CY: 请在已有节点的配置中使用");
+  }
+
   const groups = [
-  {
-    "name": "CY 节点选择",
-    "type": "select",
-    "exclude-filter": "(?i)(剩余|剩餘|流量|到期|官网|官網|套餐|重置|公告|客服|traffic|expire|remaining|reset)",
-    "empty-fallback": "REJECT",
-    "include-all": true
-  },
-  {
-    "name": "CY 🇵🇭 菲律宾最快",
-    "type": "url-test",
-    "url": "https://www.gstatic.com/generate_204",
-    "interval": 600,
-    "timeout": 5000,
-    "tolerance": 50,
-    "filter": "(?i)^.*(🇵🇭|菲律宾|菲律賓|马尼拉|馬尼拉|宿务|宿霧|\\b((PH|PHL|MNL|CEB|Philippines|Manila|Cebu)([-_ ]?[0-9]+)?)\\b).*$",
-    "exclude-filter": "(?i)(剩余|剩餘|流量|到期|官网|官網|套餐|重置|公告|客服|traffic|expire|remaining|reset)",
-    "empty-fallback": "REJECT",
-    "include-all": true
-  },
-  {
-    "name": "CY 🇹🇼 台湾最快",
-    "type": "url-test",
-    "url": "https://www.gstatic.com/generate_204",
-    "interval": 600,
-    "timeout": 5000,
-    "tolerance": 50,
-    "filter": "(?i)^.*(🇹🇼|台湾|台灣|臺灣|台北|臺北|台中|臺中|高雄|新北|桃园|桃園|\\b((TW|TWN|TPE|TSA|KHH|Taiwan|Taipei|Taichung|Kaohsiung)([-_ ]?[0-9]+)?)\\b).*$",
-    "exclude-filter": "(?i)(剩余|剩餘|流量|到期|官网|官網|套餐|重置|公告|客服|traffic|expire|remaining|reset)",
-    "empty-fallback": "REJECT",
-    "include-all": true
-  },
-  {
-    "name": "CY 🇬🇧 英国最快",
-    "type": "url-test",
-    "url": "https://www.gstatic.com/generate_204",
-    "interval": 600,
-    "timeout": 5000,
-    "tolerance": 50,
-    "filter": "(?i)^.*(🇬🇧|英国|英國|伦敦|倫敦|曼彻斯特|曼徹斯特|\\b((UK|GB|GBR|LHR|LGW|MAN|London|Manchester)([-_ ]?[0-9]+)?|United Kingdom|Britain)\\b).*$",
-    "exclude-filter": "(?i)(剩余|剩餘|流量|到期|官网|官網|套餐|重置|公告|客服|traffic|expire|remaining|reset)",
-    "empty-fallback": "REJECT",
-    "include-all": true
-  }
-];
+    {
+      name: G_SELECT,
+      type: "select",
+      "exclude-filter": INFO_FILTER,
+      "empty-fallback": "REJECT",
+      "include-all": true
+    },
+    urlTestGroup(
+      G_PH,
+      "(?i)^.*(🇵🇭|菲律宾|菲律賓|马尼拉|馬尼拉|宿务|宿霧|\\b((PH|PHL|MNL|CEB|Philippines|Manila|Cebu)([-_ ]?[0-9]+)?)\\b).*$"
+    ),
+    urlTestGroup(
+      G_TW,
+      "(?i)^.*(🇹🇼|台湾|台灣|臺灣|台北|臺北|台中|臺中|高雄|新北|桃园|桃園|\\b((TW|TWN|TPE|TSA|KHH|Taiwan|Taipei|Taichung|Kaohsiung)([-_ ]?[0-9]+)?)\\b).*$"
+    ),
+    urlTestGroup(
+      G_UK,
+      "(?i)^.*(🇬🇧|英国|英國|伦敦|倫敦|曼彻斯特|曼徹斯特|\\b((UK|GB|GBR|LHR|LGW|MAN|London|Manchester)([-_ ]?[0-9]+)?|United Kingdom|Britain)\\b).*$"
+    ),
+    urlTestGroup(
+      G_EU,
+      "(?i)^.*(🇪🇺|欧盟|歐盟|欧洲|歐洲|荷兰|荷蘭|德国|德國|法国|法國|爱尔兰|愛爾蘭|奥地利|奧地利|比利时|比利時|西班牙|意大利|義大利|法兰克福|法蘭克福|阿姆斯特丹|巴黎|都柏林|维也纳|維也納|\\b((EU|EUR|NL|NLD|DE|DEU|FR|FRA|IE|IRL|AT|AUT|BE|BEL|ES|ESP|IT|ITA|AMS|CDG|DUB|VIE|MAD|BCN)([-_ ]?[0-9]+)?)\\b|Netherlands|Germany|France|Ireland|Austria|Belgium|Amsterdam|Frankfurt|Paris|Dublin).*$"
+    ),
+    {
+      name: G_BYBIT,
+      type: "select",
+      proxies: [G_EU, G_TW, G_SELECT],
+      "empty-fallback": "REJECT"
+    }
+  ];
+
   const providers = {
-  "CY-Apple_Domain": {
-    "type": "http",
-    "behavior": "domain",
-    "format": "mrs",
-    "interval": 86400,
-    "url": "https://raw.githubusercontent.com/Sydney-Moses/Network-Profiles/refs/heads/main/MRS/Apple_Domain.mrs",
-    "path": "./rules/cy-Apple_Domain.mrs"
-  },
-  "CY-ChinaMax_Domain": {
-    "type": "http",
-    "behavior": "domain",
-    "format": "mrs",
-    "interval": 86400,
-    "url": "https://raw.githubusercontent.com/Sydney-Moses/Network-Profiles/refs/heads/main/MRS/ChinaMax_Domain.mrs",
-    "path": "./rules/cy-ChinaMax_Domain.mrs"
-  },
-  "CY-ChinaMax_IP": {
-    "type": "http",
-    "behavior": "ipcidr",
-    "format": "mrs",
-    "interval": 86400,
-    "url": "https://raw.githubusercontent.com/Sydney-Moses/Network-Profiles/refs/heads/main/MRS/ChinaMax_IP.mrs",
-    "path": "./rules/cy-ChinaMax_IP.mrs"
-  }
-};
-  const rules = [
-  "DOMAIN,localhost,DIRECT",
-  "DOMAIN,sequoia.apple.com,DIRECT",
-  "DOMAIN,seed-sequoia.siri.apple.com,DIRECT",
-  "DOMAIN-SUFFIX,local,DIRECT",
-  "DOMAIN-SUFFIX,lan,DIRECT",
-  "DOMAIN-SUFFIX,internal,DIRECT",
-  "DOMAIN-SUFFIX,ls.apple.com,DIRECT",
-  "DOMAIN-SUFFIX,huitone.com,DIRECT",
-  "DOMAIN-SUFFIX,huinor.com,DIRECT",
-  "DOMAIN-SUFFIX,synology.me,DIRECT",
-  "DOMAIN,register.appattest.apple.com,DIRECT",
-  "DOMAIN,captive.apple.com,DIRECT",
-  "DOMAIN-SUFFIX,mesu.apple.com,DIRECT",
-  "DOMAIN-SUFFIX,swscan.apple.com,DIRECT",
-  "DOMAIN-SUFFIX,gdmf.apple.com,DIRECT",
-  "DOMAIN-SUFFIX,ocsp.apple.com,DIRECT",
-  "DOMAIN-SUFFIX,ess.apple.com,DIRECT",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,mexc.com)),REJECT",
-  "DOMAIN-SUFFIX,mexc.com,CY 🇵🇭 菲律宾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,mexc.link)),REJECT",
-  "DOMAIN-SUFFIX,mexc.link,CY 🇵🇭 菲律宾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,mexc.app)),REJECT",
-  "DOMAIN-SUFFIX,mexc.app,CY 🇵🇭 菲律宾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,mexc.live)),REJECT",
-  "DOMAIN-SUFFIX,mexc.live,CY 🇵🇭 菲律宾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,mexc.zone)),REJECT",
-  "DOMAIN-SUFFIX,mexc.zone,CY 🇵🇭 菲律宾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,mxc.com)),REJECT",
-  "DOMAIN-SUFFIX,mxc.com,CY 🇵🇭 菲律宾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,mxc.ai)),REJECT",
-  "DOMAIN-SUFFIX,mxc.ai,CY 🇵🇭 菲律宾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,mexc-api.com)),REJECT",
-  "DOMAIN-SUFFIX,mexc-api.com,CY 🇵🇭 菲律宾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,mexcapi.com)),REJECT",
-  "DOMAIN-SUFFIX,mexcapi.com,CY 🇵🇭 菲律宾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,mexccdn.com)),REJECT",
-  "DOMAIN-SUFFIX,mexccdn.com,CY 🇵🇭 菲律宾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,mxcapi.com)),REJECT",
-  "DOMAIN-SUFFIX,mxcapi.com,CY 🇵🇭 菲律宾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-KEYWORD,mexc)),REJECT",
-  "DOMAIN-KEYWORD,mexc,CY 🇵🇭 菲律宾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit.com)),REJECT",
-  "DOMAIN-SUFFIX,bybit.com,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit.global)),REJECT",
-  "DOMAIN-SUFFIX,bybit.global,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit.biz)),REJECT",
-  "DOMAIN-SUFFIX,bybit.biz,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit.cloud)),REJECT",
-  "DOMAIN-SUFFIX,bybit.cloud,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit-global.com)),REJECT",
-  "DOMAIN-SUFFIX,bybit-global.com,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybitglobal.com)),REJECT",
-  "DOMAIN-SUFFIX,bybitglobal.com,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bytick.com)),REJECT",
-  "DOMAIN-SUFFIX,bytick.com,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit.nl)),REJECT",
-  "DOMAIN-SUFFIX,bybit.nl,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit.tr)),REJECT",
-  "DOMAIN-SUFFIX,bybit.tr,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit-tr.com)),REJECT",
-  "DOMAIN-SUFFIX,bybit-tr.com,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit.kz)),REJECT",
-  "DOMAIN-SUFFIX,bybit.kz,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybitgeorgia.ge)),REJECT",
-  "DOMAIN-SUFFIX,bybitgeorgia.ge,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit.ae)),REJECT",
-  "DOMAIN-SUFFIX,bybit.ae,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit.eu)),REJECT",
-  "DOMAIN-SUFFIX,bybit.eu,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit.id)),REJECT",
-  "DOMAIN-SUFFIX,bybit.id,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,byhkbit.com)),REJECT",
-  "DOMAIN-SUFFIX,byhkbit.com,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,byapis.com)),REJECT",
-  "DOMAIN-SUFFIX,byapis.com,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bycsi.com)),REJECT",
-  "DOMAIN-SUFFIX,bycsi.com,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bycbe.com)),REJECT",
-  "DOMAIN-SUFFIX,bycbe.com,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bymj.io)),REJECT",
-  "DOMAIN-SUFFIX,bymj.io,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,byffbb.com)),REJECT",
-  "DOMAIN-SUFFIX,byffbb.com,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybit-aws.com)),REJECT",
-  "DOMAIN-SUFFIX,bybit-aws.com,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybdc6.com)),REJECT",
-  "DOMAIN-SUFFIX,bybdc6.com,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,byabcde.com)),REJECT",
-  "DOMAIN-SUFFIX,byabcde.com,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,byapps.net)),REJECT",
-  "DOMAIN-SUFFIX,byapps.net,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,byd3c3.com)),REJECT",
-  "DOMAIN-SUFFIX,byd3c3.com,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,bybits.org)),REJECT",
-  "DOMAIN-SUFFIX,bybits.org,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN,bybit-exchange.github.io)),REJECT",
-  "DOMAIN,bybit-exchange.github.io,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN,bybit.ada.support)),REJECT",
-  "DOMAIN,bybit.ada.support,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-KEYWORD,bybit)),REJECT",
-  "DOMAIN-KEYWORD,bybit,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-KEYWORD,bytick)),REJECT",
-  "DOMAIN-KEYWORD,bytick,CY 🇹🇼 台湾最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,paypal.com)),REJECT",
-  "DOMAIN-SUFFIX,paypal.com,CY 🇬🇧 英国最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,paypalobjects.com)),REJECT",
-  "DOMAIN-SUFFIX,paypalobjects.com,CY 🇬🇧 英国最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,paypal.me)),REJECT",
-  "DOMAIN-SUFFIX,paypal.me,CY 🇬🇧 英国最快",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,chatgpt.com)),REJECT",
-  "DOMAIN-SUFFIX,chatgpt.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,openai.com)),REJECT",
-  "DOMAIN-SUFFIX,openai.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,openaiapi.com)),REJECT",
-  "DOMAIN-SUFFIX,openaiapi.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,oaiusercontent.com)),REJECT",
-  "DOMAIN-SUFFIX,oaiusercontent.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,oaistatic.com)),REJECT",
-  "DOMAIN-SUFFIX,oaistatic.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,sora.com)),REJECT",
-  "DOMAIN-SUFFIX,sora.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,ai.com)),REJECT",
-  "DOMAIN-SUFFIX,ai.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,anthropic.com)),REJECT",
-  "DOMAIN-SUFFIX,anthropic.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,claude.ai)),REJECT",
-  "DOMAIN-SUFFIX,claude.ai,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,claudeusercontent.com)),REJECT",
-  "DOMAIN-SUFFIX,claudeusercontent.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,gemini.google.com)),REJECT",
-  "DOMAIN-SUFFIX,gemini.google.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,aistudio.google.com)),REJECT",
-  "DOMAIN-SUFFIX,aistudio.google.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,makersuite.google.com)),REJECT",
-  "DOMAIN-SUFFIX,makersuite.google.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,notebooklm.google.com)),REJECT",
-  "DOMAIN-SUFFIX,notebooklm.google.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,generativelanguage.googleapis.com)),REJECT",
-  "DOMAIN-SUFFIX,generativelanguage.googleapis.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,proactivebackend-pa.googleapis.com)),REJECT",
-  "DOMAIN-SUFFIX,proactivebackend-pa.googleapis.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,alkalimena-pa.clients6.google.com)),REJECT",
-  "DOMAIN-SUFFIX,alkalimena-pa.clients6.google.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,x.ai)),REJECT",
-  "DOMAIN-SUFFIX,x.ai,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,grok.com)),REJECT",
-  "DOMAIN-SUFFIX,grok.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN,copilot.microsoft.com)),REJECT",
-  "DOMAIN,copilot.microsoft.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,githubcopilot.com)),REJECT",
-  "DOMAIN-SUFFIX,githubcopilot.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,github.com)),REJECT",
-  "DOMAIN-SUFFIX,github.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,githubusercontent.com)),REJECT",
-  "DOMAIN-SUFFIX,githubusercontent.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,perplexity.ai)),REJECT",
-  "DOMAIN-SUFFIX,perplexity.ai,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,poe.com)),REJECT",
-  "DOMAIN-SUFFIX,poe.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,quora.com)),REJECT",
-  "DOMAIN-SUFFIX,quora.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,cursor.com)),REJECT",
-  "DOMAIN-SUFFIX,cursor.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,cursor.sh)),REJECT",
-  "DOMAIN-SUFFIX,cursor.sh,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,cursorapi.com)),REJECT",
-  "DOMAIN-SUFFIX,cursorapi.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,huggingface.co)),REJECT",
-  "DOMAIN-SUFFIX,huggingface.co,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,hf.co)),REJECT",
-  "DOMAIN-SUFFIX,hf.co,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,hf.space)),REJECT",
-  "DOMAIN-SUFFIX,hf.space,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,cdn-lfs.huggingface.co)),REJECT",
-  "DOMAIN-SUFFIX,cdn-lfs.huggingface.co,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,mistral.ai)),REJECT",
-  "DOMAIN-SUFFIX,mistral.ai,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,meta.ai)),REJECT",
-  "DOMAIN-SUFFIX,meta.ai,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,you.com)),REJECT",
-  "DOMAIN-SUFFIX,you.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,phind.com)),REJECT",
-  "DOMAIN-SUFFIX,phind.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,character.ai)),REJECT",
-  "DOMAIN-SUFFIX,character.ai,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,replicate.com)),REJECT",
-  "DOMAIN-SUFFIX,replicate.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,together.ai)),REJECT",
-  "DOMAIN-SUFFIX,together.ai,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,cohere.com)),REJECT",
-  "DOMAIN-SUFFIX,cohere.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,groq.com)),REJECT",
-  "DOMAIN-SUFFIX,groq.com,CY 节点选择",
-  "AND,((NETWORK,udp),(DST-PORT,443),(DOMAIN-SUFFIX,fireworks.ai)),REJECT",
-  "DOMAIN-SUFFIX,fireworks.ai,CY 节点选择",
-  "IP-CIDR,0.0.0.0/8,DIRECT,no-resolve",
-  "IP-CIDR,10.0.0.0/8,DIRECT,no-resolve",
-  "IP-CIDR,100.64.0.0/10,DIRECT,no-resolve",
-  "IP-CIDR,127.0.0.0/8,DIRECT,no-resolve",
-  "IP-CIDR,169.254.0.0/16,DIRECT,no-resolve",
-  "IP-CIDR,172.16.0.0/12,DIRECT,no-resolve",
-  "IP-CIDR,192.0.0.0/24,DIRECT,no-resolve",
-  "IP-CIDR,192.0.2.0/24,DIRECT,no-resolve",
-  "IP-CIDR,192.88.99.0/24,DIRECT,no-resolve",
-  "IP-CIDR,192.168.0.0/16,DIRECT,no-resolve",
-  "IP-CIDR,198.51.100.0/24,DIRECT,no-resolve",
-  "IP-CIDR,203.0.113.0/24,DIRECT,no-resolve",
-  "IP-CIDR,216.36.82.250/32,DIRECT",
-  "IP-CIDR,224.0.0.0/4,DIRECT,no-resolve",
-  "IP-CIDR,255.255.255.255/32,DIRECT,no-resolve",
-  "IP-CIDR6,::1/128,DIRECT,no-resolve",
-  "IP-CIDR6,fc00::/7,DIRECT,no-resolve",
-  "IP-CIDR6,fe80::/10,DIRECT,no-resolve",
-  "DOMAIN-KEYWORD,apple-support.akadns.net,DIRECT",
-  "DOMAIN-KEYWORD,apple.com.akadns.net,DIRECT",
-  "DOMAIN-KEYWORD,apple.com.edgekey.net,DIRECT",
-  "DOMAIN-KEYWORD,buy.itunes.apple.com,DIRECT",
-  "DOMAIN-KEYWORD,smp-device,DIRECT",
-  "DOMAIN-KEYWORD,testflight,DIRECT",
-  "DOMAIN-KEYWORD,icloud.com.akadns.net,DIRECT",
-  "IP-CIDR,139.178.128.0/18,DIRECT",
-  "IP-CIDR,144.178.0.0/19,DIRECT",
-  "IP-CIDR,144.178.36.0/22,DIRECT",
-  "IP-CIDR,144.178.48.0/20,DIRECT",
-  "IP-CIDR,17.0.0.0/8,DIRECT",
-  "IP-CIDR,192.35.50.0/24,DIRECT",
-  "IP-CIDR,198.183.17.0/24,DIRECT",
-  "IP-CIDR,205.180.175.0/24,DIRECT",
-  "IP-CIDR,63.92.224.0/19,DIRECT",
-  "IP-CIDR,65.199.22.0/23,DIRECT",
-  "IP-CIDR6,2403:300::/32,DIRECT",
-  "IP-CIDR6,2620:149::/32,DIRECT",
-  "IP-CIDR6,2a01:b740::/32,DIRECT",
-  "RULE-SET,CY-Apple_Domain,DIRECT",
-  "DOMAIN-KEYWORD,.tmall.com,DIRECT",
-  "DOMAIN-KEYWORD,alicdn,DIRECT",
-  "DOMAIN-KEYWORD,alipay,DIRECT",
-  "DOMAIN-KEYWORD,aliyun,DIRECT",
-  "DOMAIN-KEYWORD,baidu,DIRECT",
-  "DOMAIN-KEYWORD,beplay,DIRECT",
-  "DOMAIN-KEYWORD,officecdn,DIRECT",
-  "DOMAIN-KEYWORD,taobao,DIRECT",
-  "DOMAIN-KEYWORD,bilibili,DIRECT",
-  "DOMAIN-KEYWORD,qiyi,DIRECT",
-  "DOMAIN-KEYWORD,hnagroup,DIRECT",
-  "DOMAIN-KEYWORD,stripe,DIRECT",
-  "DOMAIN-KEYWORD,weibo,DIRECT",
-  "RULE-SET,CY-ChinaMax_Domain,DIRECT",
-  "RULE-SET,CY-ChinaMax_IP,DIRECT",
-  "GEOIP,CN,DIRECT",
-  "AND,((NETWORK,udp),(DST-PORT,443)),REJECT",
-  "MATCH,CY 节点选择"
-];
-  const names = groups.map(function(g) { return g.name; });
-  nodes.forEach(function(n) { if (names.indexOf(n.name) >= 0) throw new Error("CY: 节点与策略组重名: " + n.name); });
-  config["proxy-groups"] = (config["proxy-groups"] || []).filter(function(g) { return names.indexOf(g.name) < 0; }).concat(groups);
-  // 保守保留 DNS / sub-rules 等其他字段实际引用的旧规则集。
+    "CY-Apple_Domain": {
+      type: "http",
+      behavior: "domain",
+      format: "mrs",
+      interval: 86400,
+      url: "https://raw.githubusercontent.com/Sydney-Moses/Network-Profiles/refs/heads/main/MRS/Apple_Domain.mrs",
+      path: "./rules/cy-Apple_Domain.mrs"
+    },
+    "CY-ChinaMax_Domain": {
+      type: "http",
+      behavior: "domain",
+      format: "mrs",
+      interval: 86400,
+      url: "https://raw.githubusercontent.com/Sydney-Moses/Network-Profiles/refs/heads/main/MRS/ChinaMax_Domain.mrs",
+      path: "./rules/cy-ChinaMax_Domain.mrs"
+    },
+    "CY-ChinaMax_IP": {
+      type: "http",
+      behavior: "ipcidr",
+      format: "mrs",
+      interval: 86400,
+      url: "https://raw.githubusercontent.com/Sydney-Moses/Network-Profiles/refs/heads/main/MRS/ChinaMax_IP.mrs",
+      path: "./rules/cy-ChinaMax_IP.mrs"
+    }
+  };
+
+  const rules = [].concat(
+    [
+      "DOMAIN,localhost,DIRECT",
+      "DOMAIN-SUFFIX,local,DIRECT",
+      "DOMAIN-SUFFIX,lan,DIRECT",
+      "DOMAIN-SUFFIX,internal,DIRECT",
+      "DOMAIN-SUFFIX,ls.apple.com,DIRECT",
+      "DOMAIN,sequoia.apple.com,DIRECT",
+      "DOMAIN,seed-sequoia.siri.apple.com,DIRECT",
+      "DOMAIN,register.appattest.apple.com,DIRECT",
+      "DOMAIN,captive.apple.com,DIRECT",
+      "DOMAIN-SUFFIX,mesu.apple.com,DIRECT",
+      "DOMAIN-SUFFIX,swscan.apple.com,DIRECT",
+      "DOMAIN-SUFFIX,gdmf.apple.com,DIRECT",
+      "DOMAIN-SUFFIX,ocsp.apple.com,DIRECT",
+      "DOMAIN-SUFFIX,ess.apple.com,DIRECT"
+    ],
+    COMPANY_DOMAINS.map(function (d) { return "DOMAIN-SUFFIX," + d + ",DIRECT"; }),
+    [
+      "DOMAIN-SUFFIX,brightdata.com," + G_SELECT
+    ],
+    suffixRules(MEXC_SUFFIX, G_PH),
+    keywordRules(["mexc"], G_PH),
+    exactRules(BYBIT_EU_EXACT, G_EU),
+    suffixRules(BYBIT_EU_SUFFIX, G_EU),
+    suffixRules(BYBIT_SHARED_SUFFIX, G_BYBIT),
+    exactRules(BYBIT_GLOBAL_EXACT, G_TW),
+    suffixRules(BYBIT_GLOBAL_SUFFIX, G_TW),
+    keywordRules(["bytick"], G_TW),
+    keywordRules(["bybit"], G_BYBIT),
+    suffixRules(PAYPAL_SUFFIX, G_UK),
+    suffixRules(AI_SUFFIX, G_SELECT),
+    exactRules(AI_EXACT, G_SELECT),
+    [
+      "IP-CIDR,0.0.0.0/8,DIRECT,no-resolve",
+      "IP-CIDR,10.0.0.0/8,DIRECT,no-resolve",
+      "IP-CIDR,100.64.0.0/10,DIRECT,no-resolve",
+      "IP-CIDR,127.0.0.0/8,DIRECT,no-resolve",
+      "IP-CIDR,169.254.0.0/16,DIRECT,no-resolve",
+      "IP-CIDR,172.16.0.0/12,DIRECT,no-resolve",
+      "IP-CIDR,192.0.0.0/24,DIRECT,no-resolve",
+      "IP-CIDR,192.0.2.0/24,DIRECT,no-resolve",
+      "IP-CIDR,192.88.99.0/24,DIRECT,no-resolve",
+      "IP-CIDR,192.168.0.0/16,DIRECT,no-resolve",
+      "IP-CIDR,198.51.100.0/24,DIRECT,no-resolve",
+      "IP-CIDR,203.0.113.0/24,DIRECT,no-resolve",
+      "IP-CIDR,216.36.82.250/32,DIRECT",
+      "IP-CIDR,224.0.0.0/4,DIRECT,no-resolve",
+      "IP-CIDR,255.255.255.255/32,DIRECT,no-resolve",
+      "IP-CIDR6,::1/128,DIRECT,no-resolve",
+      "IP-CIDR6,fc00::/7,DIRECT,no-resolve",
+      "IP-CIDR6,fe80::/10,DIRECT,no-resolve",
+      "DOMAIN-KEYWORD,apple-support.akadns.net,DIRECT",
+      "DOMAIN-KEYWORD,apple.com.akadns.net,DIRECT",
+      "DOMAIN-KEYWORD,apple.com.edgekey.net,DIRECT",
+      "DOMAIN-KEYWORD,buy.itunes.apple.com,DIRECT",
+      "DOMAIN-KEYWORD,smp-device,DIRECT",
+      "DOMAIN-KEYWORD,testflight,DIRECT",
+      "DOMAIN-KEYWORD,icloud.com.akadns.net,DIRECT",
+      "IP-CIDR,139.178.128.0/18,DIRECT",
+      "IP-CIDR,144.178.0.0/19,DIRECT",
+      "IP-CIDR,144.178.36.0/22,DIRECT",
+      "IP-CIDR,144.178.48.0/20,DIRECT",
+      "IP-CIDR,17.0.0.0/8,DIRECT",
+      "IP-CIDR,192.35.50.0/24,DIRECT",
+      "IP-CIDR,198.183.17.0/24,DIRECT",
+      "IP-CIDR,205.180.175.0/24,DIRECT",
+      "IP-CIDR,63.92.224.0/19,DIRECT",
+      "IP-CIDR,65.199.22.0/23,DIRECT",
+      "IP-CIDR6,2403:300::/32,DIRECT",
+      "IP-CIDR6,2620:149::/32,DIRECT",
+      "IP-CIDR6,2a01:b740::/32,DIRECT",
+      "RULE-SET,CY-Apple_Domain,DIRECT",
+      "DOMAIN-SUFFIX,tmall.com,DIRECT",
+      "DOMAIN-KEYWORD,alicdn,DIRECT",
+      "DOMAIN-KEYWORD,alipay,DIRECT",
+      "DOMAIN-KEYWORD,aliyun,DIRECT",
+      "DOMAIN-KEYWORD,baidu,DIRECT",
+      "DOMAIN-KEYWORD,beplay,DIRECT",
+      "DOMAIN-KEYWORD,officecdn,DIRECT",
+      "DOMAIN-KEYWORD,taobao,DIRECT",
+      "DOMAIN-KEYWORD,bilibili,DIRECT",
+      "DOMAIN-KEYWORD,qiyi,DIRECT",
+      "DOMAIN-KEYWORD,hnagroup,DIRECT",
+      "DOMAIN-KEYWORD,stripe,DIRECT",
+      "DOMAIN-KEYWORD,weibo,DIRECT",
+      "RULE-SET,CY-ChinaMax_Domain,DIRECT",
+      "RULE-SET,CY-ChinaMax_IP,DIRECT",
+      "GEOIP,CN,DIRECT",
+      "AND,((NETWORK,udp),(DST-PORT,443)),REJECT",
+      "MATCH," + G_SELECT
+    ]
+  );
+
+  const names = groups.map(function (g) { return g.name; });
+  nodes.forEach(function (n) {
+    if (names.indexOf(n.name) >= 0) throw new Error("CY: 节点与策略组重名: " + n.name);
+  });
+  config["proxy-groups"] = (config["proxy-groups"] || []).filter(function (g) {
+    return names.indexOf(g.name) < 0;
+  }).concat(groups);
+
   const other = {};
-  Object.keys(config).forEach(function(k) { if (k !== "rules" && k !== "rule-providers") other[k] = config[k]; });
+  Object.keys(config).forEach(function (k) {
+    if (k !== "rules" && k !== "rule-providers") other[k] = config[k];
+  });
   const references = JSON.stringify(other);
   const kept = {};
-  Object.keys(config["rule-providers"] || {}).forEach(function(k) {
+  Object.keys(config["rule-providers"] || {}).forEach(function (k) {
     if (references.indexOf(k) >= 0) kept[k] = config["rule-providers"][k];
   });
   config["rule-providers"] = Object.assign(kept, providers);
