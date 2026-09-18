@@ -1,17 +1,20 @@
-// CY 分流脚本 v2.1 | Author: ChungyuCheung | 2026-09-17
+// CY 分流脚本 v2.2 | Author: ChungyuCheung | 2026-09-18
 // 依据 https://clash.md/zh/guide/config/best-practice
 // 沿用当前配置的节点、节点来源、DNS、TUN；无需再填写订阅。
-// 用法：覆写 -> 高级 -> 脚本 -> 管理本地脚本 -> 用下方 raw URL 导入，保存并选中。
+// 用法：配置详情 → 覆写脚本 → 用 raw URL 导入，保存并选中。
 //
+// v2.2
+// - 新增「CY 稳定自动」：只在台/港/新/日里 url-test，间隔 30 分钟，容差 150ms，避免全库乱跳影响账号。
+// - 「CY 节点选择」第一项改为稳定自动；MATCH / AI 仍进该组，可手动锁死单节点。
+// - 专用规则优先于兜底：Bybit EU → 全球站 → MEXC → PayPal → AI → 国内直连 → MATCH。
 // v2.1
-// - Bybit EU / NL 走欧盟节点；全球站仍走台湾。共用 CDN 进「CY Bybit」组，默认可选手动切。
-// - 用列表生成规则，去掉成对重复的 QUIC 拦截行。
-// - 公司域与 Verge 脚本对齐；修正 tmall 规则写法。
-// - 地区组为空 REJECT，不跨地区回退。节点名需带对应地区标识。
+// - Bybit EU / NL 走欧盟节点；全球站仍走台湾。共用 CDN 进「CY Bybit」组。
+// - 地区组为空 REJECT，不跨地区回退。
 const INFO_FILTER = "(?i)(剩余|剩餘|流量|到期|官网|官網|套餐|重置|公告|客服|traffic|expire|remaining|reset)";
 const TEST_URL = "https://www.gstatic.com/generate_204";
 
 const G_SELECT = "CY 节点选择";
+const G_STABLE = "CY 稳定自动";
 const G_PH = "CY 🇵🇭 菲律宾最快";
 const G_TW = "CY 🇹🇼 台湾最快";
 const G_UK = "CY 🇬🇧 英国最快";
@@ -73,14 +76,14 @@ const AI_SUFFIX = [
 ];
 const AI_EXACT = ["copilot.microsoft.com", "alkalimena-pa.clients6.google.com"];
 
-function urlTestGroup(name, filter) {
+function urlTestGroup(name, filter, interval, tolerance) {
   return {
     name: name,
     type: "url-test",
     url: TEST_URL,
-    interval: 600,
+    interval: interval || 600,
     timeout: 5000,
-    tolerance: 50,
+    tolerance: tolerance == null ? 50 : tolerance,
     filter: filter,
     "exclude-filter": INFO_FILTER,
     "empty-fallback": "REJECT",
@@ -129,13 +132,6 @@ function main(config) {
   }
 
   const groups = [
-    {
-      name: G_SELECT,
-      type: "select",
-      "exclude-filter": INFO_FILTER,
-      "empty-fallback": "REJECT",
-      "include-all": true
-    },
     urlTestGroup(
       G_PH,
       "(?i)^.*(🇵🇭|菲律宾|菲律賓|马尼拉|馬尼拉|宿务|宿霧|\\b((PH|PHL|MNL|CEB|Philippines|Manila|Cebu)([-_ ]?[0-9]+)?)\\b).*$"
@@ -152,10 +148,24 @@ function main(config) {
       G_EU,
       "(?i)^.*(🇪🇺|欧盟|歐盟|欧洲|歐洲|荷兰|荷蘭|德国|德國|法国|法國|爱尔兰|愛爾蘭|奥地利|奧地利|比利时|比利時|西班牙|意大利|義大利|法兰克福|法蘭克福|阿姆斯特丹|巴黎|都柏林|维也纳|維也納|\\b((EU|EUR|NL|NLD|DE|DEU|FR|FRA|IE|IRL|AT|AUT|BE|BEL|ES|ESP|IT|ITA|AMS|CDG|DUB|VIE|MAD|BCN)([-_ ]?[0-9]+)?)\\b|Netherlands|Germany|France|Ireland|Austria|Belgium|Amsterdam|Frankfurt|Paris|Dublin).*$"
     ),
+    urlTestGroup(
+      G_STABLE,
+      "(?i)^.*(🇹🇼|🇭🇰|🇸🇬|🇯🇵|台湾|台灣|臺灣|台北|臺北|台中|臺中|高雄|新北|桃园|桃園|香港|新加坡|狮城|獅城|日本|东京|東京|大阪|名古屋|Taiwan|Taipei|Hong Kong|HongKong|Singapore|Japan|Tokyo|Osaka|\\b((TW|TWN|HK|HKG|SG|SGP|JP|JPN|TPE|TSA|KHH|SIN|NRT|HND|KIX|NGO)([-_ ]?[0-9]+)?)\\b).*$",
+      1800,
+      150
+    ),
+    {
+      name: G_SELECT,
+      type: "select",
+      proxies: [G_STABLE, G_TW, G_PH, G_UK, G_EU],
+      "exclude-filter": INFO_FILTER,
+      "empty-fallback": "REJECT",
+      "include-all": true
+    },
     {
       name: G_BYBIT,
       type: "select",
-      proxies: [G_EU, G_TW, G_SELECT],
+      proxies: [G_EU, G_TW, G_STABLE, G_SELECT],
       "empty-fallback": "REJECT"
     }
   ];
