@@ -34,7 +34,7 @@ const CN_DIRECT_SUFFIX = [
   "qq.com", "weixin.qq.com", "weixin.com", "wechat.com", "weixinbridge.com",
   "servicewechat.com", "wx.qq.com", "qpic.cn", "qlogo.cn", "gtimg.cn", "gtimg.com",
   "idqqimg.com", "myapp.com", "tencent.com", "tenpay.com", "qcloud.com", "myqcloud.com",
-  "cdn-go.cn", "weiyun.com", "weixinbridge.com", "tencent-cloud.net",
+  "cdn-go.cn", "weiyun.com", "tencent-cloud.net",
   "alipay.com", "alipayobjects.com", "taobao.com", "tmall.com", "alicdn.com",
   "aliyun.com", "aliyuncs.com", "alibaba.com", "aliapp.org", "mmstat.com",
   "baidu.com", "bdstatic.com", "bdimg.com",
@@ -52,19 +52,18 @@ const CN_DIRECT_SUFFIX = [
   "zhihu.com", "zhimg.com",
   "kuaishou.com", "yximgs.com",
   "douyu.com", "huya.com",
-  "ctrip.com", "trip.com", "qunar.com", "ly.com",
+  "ctrip.com", "qunar.com", "ly.com",
   "12306.cn", "rails.com.cn",
   "unionpay.com", "unionpaysecure.com", "chinapay.com",
   "dingtalk.com", "laiwang.com",
   "feishu.cn", "larksuite.cn",
-  "wework.com", "work.weixin.qq.com",
+  "wework.com",
   "wps.cn", "ksosoft.com",
   "suning.com", "vip.com", "kaola.com",
   "sohu.com", "sohucs.com", "ifeng.com", "cctv.com",
   "360.cn", "360.com", "qhimg.com",
   "sm.cn", "uc.cn", "ucweb.com",
-  "amap.com", "autonavi.com", "gaode.com",
-  "pcos.cc", "office.com"
+  "amap.com", "autonavi.com", "gaode.com"
 ];
 
 const CN_DIRECT_KEYWORD = [
