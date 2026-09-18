@@ -1,11 +1,10 @@
-// CY 分流脚本 v2.5 | Author: ChungyuCheung | 2026-09-18
+// CY 分流脚本 v2.6 | Author: ChungyuCheung | 2026-09-18
 // 依据 https://clash.md/zh/guide/config/best-practice
 // 沿用当前配置的节点、节点来源、DNS、TUN；无需再填写订阅。
 // 用法：配置详情 → 覆写脚本 → 用 raw URL 导入，保存并选中。
 //
-// v2.5
-// - 微信/腾讯域名提前直连，避免图片/视频被 CY 稳定自动接走后发不出去。
-// v2.4 取消全局 UDP/443 REJECT；MATCH 进 CY 稳定自动；保留 PROXY 组。
+// v2.6 中国域名、国内 App 提前直连，不走代理。
+// v2.5 微信直连；v2.4 取消全局 QUIC 拦截。
 const INFO_FILTER = "(?i)(剩余|剩餘|流量|到期|官网|官網|套餐|重置|公告|客服|traffic|expire|remaining|reset)";
 const TEST_URL = "https://www.gstatic.com/generate_204";
 
@@ -18,47 +17,63 @@ const G_UK = "CY 🇬🇧 英国最快";
 const G_EU = "CY 🇪🇺 欧盟最快";
 const G_BYBIT = "CY Bybit";
 
-const F_PH = "(?i)^.*(🇵🇭|菲律宾|菲律賓|马尼拉|馬尼拉|宿务|宿霧|\\b((PH|PHL|MNL|CEB|Philippines|Manila|Cebu)([-_ ]?[0-9]+)?)\\b).*$"
-const F_TW = "(?i)^.*(🇹🇼|台湾|台灣|臺灣|台北|臺北|台中|臺中|高雄|新北|桃园|桃園|\\b((TW|TWN|TPE|TSA|KHH|Taiwan|Taipei|Taichung|Kaohsiung)([-_ ]?[0-9]+)?)\\b).*$"
-const F_UK = "(?i)^.*(🇬🇧|英国|英國|伦敦|倫敦|曼彻斯特|曼徹斯特|\\b((UK|GB|GBR|LHR|LGW|MAN|London|Manchester)([-_ ]?[0-9]+)?|United Kingdom|Britain)\\b).*$"
-const F_EU = "(?i)^.*(🇪🇺|欧盟|歐盟|欧洲|歐洲|荷兰|荷蘭|德国|德國|法国|法國|爱尔兰|愛爾蘭|奥地利|奧地利|比利时|比利時|西班牙|意大利|義大利|法兰克福|法蘭克福|阿姆斯特丹|巴黎|都柏林|维也纳|維也納|\\b((EU|EUR|NL|NLD|DE|DEU|FR|FRA|IE|IRL|AT|AUT|BE|BEL|ES|ESP|IT|ITA|AMS|CDG|DUB|VIE|MAD|BCN)([-_ ]?[0-9]+)?)\\b|Netherlands|Germany|France|Ireland|Austria|Belgium|Amsterdam|Frankfurt|Paris|Dublin).*$"
-const F_STABLE = "(?i)^.*(🇹🇼|🇭🇰|🇸🇬|🇯🇵|台湾|台灣|臺灣|台北|臺北|台中|臺中|高雄|新北|桃园|桃園|香港|新加坡|狮城|獅城|日本|东京|東京|大阪|名古屋|Taiwan|Taipei|Hong Kong|HongKong|Singapore|Japan|Tokyo|Osaka|\\b((TW|TWN|HK|HKG|SG|SGP|JP|JPN|TPE|TSA|KHH|SIN|NRT|HND|KIX|NGO)([-_ ]?[0-9]+)?)\\b).*$"
+const F_PH = "(?i)^.*(🇵🇭|菲律宾|菲律賓|马尼拉|馬尼拉|宿务|宿霧|\\b((PH|PHL|MNL|CEB|Philippines|Manila|Cebu)([-_ ]?[0-9]+)?)\\b).*$";
+const F_TW = "(?i)^.*(🇹🇼|台湾|台灣|臺灣|台北|臺北|台中|臺中|高雄|新北|桃园|桃園|\\b((TW|TWN|TPE|TSA|KHH|Taiwan|Taipei|Taichung|Kaohsiung)([-_ ]?[0-9]+)?)\\b).*$";
+const F_UK = "(?i)^.*(🇬🇧|英国|英國|伦敦|倫敦|曼彻斯特|曼徹斯特|\\b((UK|GB|GBR|LHR|LGW|MAN|London|Manchester)([-_ ]?[0-9]+)?|United Kingdom|Britain)\\b).*$";
+const F_EU = "(?i)^.*(🇪🇺|欧盟|歐盟|欧洲|歐洲|荷兰|荷蘭|德国|德國|法国|法國|爱尔兰|愛爾蘭|奥地利|奧地利|比利时|比利時|西班牙|意大利|義大利|法兰克福|法蘭克福|阿姆斯特丹|巴黎|都柏林|维也纳|維也納|\\b((EU|EUR|NL|NLD|DE|DEU|FR|FRA|IE|IRL|AT|AUT|BE|BEL|ES|ESP|IT|ITA|AMS|CDG|DUB|VIE|MAD|BCN)([-_ ]?[0-9]+)?)\\b|Netherlands|Germany|France|Ireland|Austria|Belgium|Amsterdam|Frankfurt|Paris|Dublin).*$";
+const F_STABLE = "(?i)^.*(🇹🇼|🇭🇰|🇸🇬|🇯🇵|台湾|台灣|臺灣|台北|臺北|台中|臺中|高雄|新北|桃园|桃園|香港|新加坡|狮城|獅城|日本|东京|東京|大阪|名古屋|Taiwan|Taipei|Hong Kong|HongKong|Singapore|Japan|Tokyo|Osaka|\\b((TW|TWN|HK|HKG|SG|SGP|JP|JPN|TPE|TSA|KHH|SIN|NRT|HND|KIX|NGO)([-_ ]?[0-9]+)?)\\b).*$";
 
 const COMPANY_DOMAINS = [
-  "huitone.com",
-  "huinor.com",
-  "synology.me",
-  "kunyi-gzzc.com",
-  "kunyi-gz.com",
-  "kunqi-dev.com",
-  "kunqi-demo.com",
-  "kunqi-test.com",
-  "kunyi-pro",
-  "kunqi-gz",
-  "jiandui.online",
-  "ooioo.work"
+  "huitone.com", "huinor.com", "synology.me",
+  "kunyi-gzzc.com", "kunyi-gz.com", "kunqi-dev.com", "kunqi-demo.com", "kunqi-test.com",
+  "kunyi-pro", "kunqi-gz", "jiandui.online", "ooioo.work"
 ];
 
-const WECHAT_SUFFIX = [
-  "weixin.qq.com",
-  "weixin.com",
-  "wechat.com",
-  "weixinbridge.com",
-  "servicewechat.com",
-  "wx.qq.com",
-  "qpic.cn",
-  "qlogo.cn",
-  "qq.com",
-  "gtimg.cn",
-  "gtimg.com",
-  "idqqimg.com",
-  "myapp.com",
-  "tencent.com",
-  "tenpay.com",
-  "qcloud.com",
-  "myqcloud.com",
-  "cdn-go.cn",
-  "weiyun.com"
+const CN_DIRECT_SUFFIX = [
+  "cn", "中国",
+  "qq.com", "weixin.qq.com", "weixin.com", "wechat.com", "weixinbridge.com",
+  "servicewechat.com", "wx.qq.com", "qpic.cn", "qlogo.cn", "gtimg.cn", "gtimg.com",
+  "idqqimg.com", "myapp.com", "tencent.com", "tenpay.com", "qcloud.com", "myqcloud.com",
+  "cdn-go.cn", "weiyun.com", "weixinbridge.com", "tencent-cloud.net",
+  "alipay.com", "alipayobjects.com", "taobao.com", "tmall.com", "alicdn.com",
+  "aliyun.com", "aliyuncs.com", "alibaba.com", "aliapp.org", "mmstat.com",
+  "baidu.com", "bdstatic.com", "bdimg.com",
+  "weibo.com", "sina.com", "sinaimg.cn", "sinajs.cn",
+  "jd.com", "360buyimg.com", "jd.hk",
+  "meituan.com", "meituan.net", "dianping.com", "dpfile.com",
+  "pinduoduo.com", "yangkeduo.com",
+  "douyin.com", "iesdouyin.com", "snssdk.com", "toutiao.com", "bytedance.com", "byteimg.com",
+  "bilibili.com", "biliapi.net", "biliapi.com", "hdslb.com", "b23.tv",
+  "iqiyi.com", "iqiyipic.com", "youku.com", "ykimg.com", "mgtv.com",
+  "163.com", "126.com", "127.net", "netease.com", "yeah.net",
+  "xiaomi.com", "mi.com", "miui.com", "xiaomi.net",
+  "huawei.com", "hicloud.com", "honor.com",
+  "xiaohongshu.com", "xhscdn.com", "xhslink.com",
+  "zhihu.com", "zhimg.com",
+  "kuaishou.com", "yximgs.com",
+  "douyu.com", "huya.com",
+  "ctrip.com", "trip.com", "qunar.com", "ly.com",
+  "12306.cn", "rails.com.cn",
+  "unionpay.com", "unionpaysecure.com", "chinapay.com",
+  "dingtalk.com", "laiwang.com",
+  "feishu.cn", "larksuite.cn",
+  "wework.com", "work.weixin.qq.com",
+  "wps.cn", "ksosoft.com",
+  "suning.com", "vip.com", "kaola.com",
+  "sohu.com", "sohucs.com", "ifeng.com", "cctv.com",
+  "360.cn", "360.com", "qhimg.com",
+  "sm.cn", "uc.cn", "ucweb.com",
+  "amap.com", "autonavi.com", "gaode.com",
+  "pcos.cc", "office.com"
+];
+
+const CN_DIRECT_KEYWORD = [
+  "weixin", "wechat", "qpic", "tencent",
+  "alipay", "alicdn", "aliyun", "taobao", "tmall",
+  "baidu", "weibo", "bilibili", "qiyi",
+  "douyin", "toutiao", "xiaohongshu",
+  "pinduoduo", "meituan", "dianping",
+  "officecdn", "beplay", "hnagroup"
 ];
 
 const MEXC_SUFFIX = [
@@ -179,6 +194,18 @@ function keywordRules(list, policy) {
   return out;
 }
 
+function directSuffix(list) {
+  const out = [];
+  for (let i = 0; i < list.length; i++) out.push("DOMAIN-SUFFIX," + list[i] + ",DIRECT");
+  return out;
+}
+
+function directKeyword(list) {
+  const out = [];
+  for (let i = 0; i < list.length; i++) out.push("DOMAIN-KEYWORD," + list[i] + ",DIRECT");
+  return out;
+}
+
 function main(config) {
   if (!config || typeof config !== "object" || Array.isArray(config)) {
     throw new Error("CY: 配置无效");
@@ -285,11 +312,9 @@ function main(config) {
       "DOMAIN-SUFFIX,ess.apple.com,DIRECT"
     ],
     COMPANY_DOMAINS.map(function (d) { return "DOMAIN-SUFFIX," + d + ",DIRECT"; }),
-    WECHAT_SUFFIX.map(function (d) { return "DOMAIN-SUFFIX," + d + ",DIRECT"; }),
+    directSuffix(CN_DIRECT_SUFFIX),
+    directKeyword(CN_DIRECT_KEYWORD),
     [
-      "DOMAIN-KEYWORD,weixin,DIRECT",
-      "DOMAIN-KEYWORD,wechat,DIRECT",
-      "DOMAIN-KEYWORD,qpic,DIRECT",
       "DOMAIN-SUFFIX,brightdata.com," + G_STABLE
     ],
     suffixRules(MEXC_SUFFIX, phPolicy),
@@ -344,19 +369,7 @@ function main(config) {
       "IP-CIDR6,2620:149::/32,DIRECT",
       "IP-CIDR6,2a01:b740::/32,DIRECT",
       "RULE-SET,CY-Apple_Domain,DIRECT",
-      "DOMAIN-SUFFIX,tmall.com,DIRECT",
-      "DOMAIN-KEYWORD,alicdn,DIRECT",
-      "DOMAIN-KEYWORD,alipay,DIRECT",
-      "DOMAIN-KEYWORD,aliyun,DIRECT",
-      "DOMAIN-KEYWORD,baidu,DIRECT",
-      "DOMAIN-KEYWORD,beplay,DIRECT",
-      "DOMAIN-KEYWORD,officecdn,DIRECT",
-      "DOMAIN-KEYWORD,taobao,DIRECT",
-      "DOMAIN-KEYWORD,bilibili,DIRECT",
-      "DOMAIN-KEYWORD,qiyi,DIRECT",
-      "DOMAIN-KEYWORD,hnagroup,DIRECT",
       "DOMAIN-KEYWORD,stripe,DIRECT",
-      "DOMAIN-KEYWORD,weibo,DIRECT",
       "RULE-SET,CY-ChinaMax_Domain,DIRECT",
       "RULE-SET,CY-ChinaMax_IP,DIRECT",
       "GEOIP,CN,DIRECT",
