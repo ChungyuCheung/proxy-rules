@@ -1,10 +1,26 @@
-# CY Verge 规则方案 v1.0 | 2026-09-18 | 仿 Clash Verge 全局脚本 v6.2
+# CY Verge 规则方案 v1.1 | 2026-09-18 | 仿 Clash Verge 全局脚本 v6.2
 # 用途：iOS Clash → 规则库 → 创建规则 → 链接，贴 raw URL。
-# 只含 rules / rule-providers，策略组只用 DIRECT / PROXY / REJECT，
-# 可与向导里的 PROXY 组对上。精细地区分流（Bybit EU / MEXC）仍用 cy-rules.js。
+# v1.1：补上 PROXY / AUTO 组。向导用自定义规则方案时不会自带这两组，
+# 规则又全部指向 PROXY，内核会启动几秒后退出。
+# 精细地区分流（Bybit EU / MEXC）仍用 cy-rules.js。
 #
 # 顺序与 Verge 一致：私网 → 自定义/公司/微软登录 → Google QUIC 拦截
 # → Google/YouTube/Discord 代理 → Loyalsoldier 规则集 → GEOIP CN → MATCH PROXY
+
+proxy-groups:
+  - name: PROXY
+    type: select
+    include-all: true
+    proxies:
+      - AUTO
+      - DIRECT
+  - name: AUTO
+    type: url-test
+    include-all: true
+    url: https://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 50
+    lazy: true
 
 rule-providers:
   reject:
