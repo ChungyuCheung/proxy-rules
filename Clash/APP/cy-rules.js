@@ -1,11 +1,13 @@
-// CY 分流脚本 v2.3 | Author: ChungyuCheung | 2026-09-18
+// CY 分流脚本 v2.3.1 | Author: ChungyuCheung | 2026-09-18
 // 依据 https://clash.md/zh/guide/config/best-practice
 // 沿用当前配置的节点、节点来源、DNS、TUN；无需再填写订阅。
 // 用法：配置详情 → 覆写脚本 → 用 raw URL 导入，保存并选中。
 //
+// v2.3.1
+// - 修复：脚本内用 JS RegExp 检查节点时，不能直接 new RegExp("(?i)...")，会 SyntaxError。
 // v2.3
 // - 不再保留向导残留的 AUTO / PROXY 等旧组，代理列表只显示 CY 组。
-// - 没有匹配节点的地区组不生成（例如菲律宾为空）；对应流量改走稳定自动。
+// - 没有匹配节点的地区组不生成；对应流量改走稳定自动。
 // v2.2
 // - 「CY 稳定自动」：只在台/港/新/日 url-test，间隔 30 分钟，容差 150ms。
 // v2.1
@@ -90,19 +92,35 @@ function urlTestGroup(name, filter, interval, tolerance) {
   };
 }
 
+function clashToJsRegExp(filter) {
+  var src = String(filter || "");
+  var flags = "";
+  if (src.indexOf("(?i)") === 0) {
+    src = src.slice(4);
+    flags = "i";
+  }
+  src = src.split("(?i)").join("");
+  try {
+    return new RegExp(src, flags);
+  } catch (e) {
+    return null;
+  }
+}
+
 function usableNodeNames(config) {
-  const reInfo = new RegExp(INFO_FILTER);
+  const reInfo = clashToJsRegExp(INFO_FILTER);
   const list = Array.isArray(config.proxies) ? config.proxies : [];
   const out = [];
   for (let i = 0; i < list.length; i++) {
     const n = list[i] && list[i].name;
-    if (n && !reInfo.test(n)) out.push(n);
+    if (n && (!reInfo || !reInfo.test(n))) out.push(n);
   }
   return out;
 }
 
 function filterHasNodes(names, filter) {
-  const re = new RegExp(filter);
+  const re = clashToJsRegExp(filter);
+  if (!re) return false;
   for (let i = 0; i < names.length; i++) {
     if (re.test(names[i])) return true;
   }
