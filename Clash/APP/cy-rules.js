@@ -1,22 +1,19 @@
-// CY 分流脚本 v2.3.1 | Author: ChungyuCheung | 2026-09-18
+// CY 分流脚本 v2.4 | Author: ChungyuCheung | 2026-09-18
 // 依据 https://clash.md/zh/guide/config/best-practice
 // 沿用当前配置的节点、节点来源、DNS、TUN；无需再填写订阅。
 // 用法：配置详情 → 覆写脚本 → 用 raw URL 导入，保存并选中。
 //
-// v2.3.1
-// - 修复：脚本内用 JS RegExp 检查节点时，不能直接 new RegExp("(?i)...")，会 SyntaxError。
-// v2.3
-// - 不再保留向导残留的 AUTO / PROXY 等旧组，代理列表只显示 CY 组。
-// - 没有匹配节点的地区组不生成；对应流量改走稳定自动。
-// v2.2
-// - 「CY 稳定自动」：只在台/港/新/日 url-test，间隔 30 分钟，容差 150ms。
-// v2.1
-// - Bybit EU / NL 走欧盟；全球站走台湾。
+// v2.4
+// - 取消全局 UDP/443 REJECT（iOS 上 HTTP/3 超时再回退 TCP，表现为上不了网或极慢），只拦 Google/YouTube QUIC。
+// - MATCH 直接进 CY 稳定自动，不再因手动锁死的坏节点而断网。
+// - 保留 PROXY 组（指向稳定自动），规则库 MATCH,PROXY 不会空指向。
+// v2.3.1 修复 (?i) 正则；v2.3 去掉空地区组；v2.2 稳定自动。
 const INFO_FILTER = "(?i)(剩余|剩餘|流量|到期|官网|官網|套餐|重置|公告|客服|traffic|expire|remaining|reset)";
 const TEST_URL = "https://www.gstatic.com/generate_204";
 
 const G_SELECT = "CY 节点选择";
 const G_STABLE = "CY 稳定自动";
+const G_PROXY = "PROXY";
 const G_PH = "CY 🇵🇭 菲律宾最快";
 const G_TW = "CY 🇹🇼 台湾最快";
 const G_UK = "CY 🇬🇧 英国最快";
@@ -76,6 +73,11 @@ const AI_SUFFIX = [
   "replicate.com", "together.ai", "cohere.com", "groq.com", "fireworks.ai"
 ];
 const AI_EXACT = ["copilot.microsoft.com", "alkalimena-pa.clients6.google.com"];
+const GOOGLE_QUIC = [
+  "google.com", "googleapis.com", "gstatic.com", "googleusercontent.com",
+  "ggpht.com", "googlevideo.com", "youtube.com", "youtu.be", "ytimg.com",
+  "youtubei.googleapis.com", "youtube-nocookie.com", "googleadservices.com"
+];
 
 function urlTestGroup(name, filter, interval, tolerance) {
   return {
@@ -87,7 +89,6 @@ function urlTestGroup(name, filter, interval, tolerance) {
     tolerance: tolerance == null ? 50 : tolerance,
     filter: filter,
     "exclude-filter": INFO_FILTER,
-    "empty-fallback": "REJECT",
     "include-all": true
   };
 }
@@ -167,6 +168,8 @@ function main(config) {
     throw new Error("CY: 请在已有节点的配置中使用");
   }
 
+  config["tcp-concurrent"] = true;
+
   const available = usableNodeNames(config);
   const hasPH = filterHasNodes(available, F_PH);
   const hasTW = filterHasNodes(available, F_TW);
@@ -195,8 +198,12 @@ function main(config) {
     type: "select",
     proxies: selectProxies,
     "exclude-filter": INFO_FILTER,
-    "empty-fallback": "REJECT",
     "include-all": true
+  });
+  groups.push({
+    name: G_PROXY,
+    type: "select",
+    proxies: [G_STABLE, G_SELECT]
   });
 
   const bybitProxies = [];
@@ -206,8 +213,7 @@ function main(config) {
   groups.push({
     name: G_BYBIT,
     type: "select",
-    proxies: bybitProxies,
-    "empty-fallback": "REJECT"
+    proxies: bybitProxies
   });
 
   const providers = {
@@ -237,6 +243,10 @@ function main(config) {
     }
   };
 
+  const googleQuicOr = GOOGLE_QUIC.map(function (d) {
+    return "(DOMAIN-SUFFIX," + d + ")";
+  }).join(",");
+
   const rules = [].concat(
     [
       "DOMAIN,localhost,DIRECT",
@@ -256,7 +266,7 @@ function main(config) {
     ],
     COMPANY_DOMAINS.map(function (d) { return "DOMAIN-SUFFIX," + d + ",DIRECT"; }),
     [
-      "DOMAIN-SUFFIX,brightdata.com," + G_SELECT
+      "DOMAIN-SUFFIX,brightdata.com," + G_STABLE
     ],
     suffixRules(MEXC_SUFFIX, phPolicy),
     keywordRules(["mexc"], phPolicy),
@@ -268,8 +278,8 @@ function main(config) {
     keywordRules(["bytick"], twPolicy),
     keywordRules(["bybit"], G_BYBIT),
     suffixRules(PAYPAL_SUFFIX, ukPolicy),
-    suffixRules(AI_SUFFIX, G_SELECT),
-    exactRules(AI_EXACT, G_SELECT),
+    suffixRules(AI_SUFFIX, G_STABLE),
+    exactRules(AI_EXACT, G_STABLE),
     [
       "IP-CIDR,0.0.0.0/8,DIRECT,no-resolve",
       "IP-CIDR,10.0.0.0/8,DIRECT,no-resolve",
@@ -326,8 +336,8 @@ function main(config) {
       "RULE-SET,CY-ChinaMax_Domain,DIRECT",
       "RULE-SET,CY-ChinaMax_IP,DIRECT",
       "GEOIP,CN,DIRECT",
-      "AND,((NETWORK,udp),(DST-PORT,443)),REJECT",
-      "MATCH," + G_SELECT
+      "AND,((NETWORK,udp),(DST-PORT,443),(OR,(" + googleQuicOr + "))),REJECT",
+      "MATCH," + G_STABLE
     ]
   );
 
