@@ -1,5 +1,5 @@
 # proxy-rules
-个人自用的一些代理规则，如 Shadowrocket、Clash Verge、Clash for Apple
+个人自用的一些代理规则，如 Shadowrocket、Clash Verge、Clash for Apple、Bettbox
 
 ## Clash for Apple（iPhone / iPad）
 
@@ -26,6 +26,34 @@ https://raw.githubusercontent.com/ChungyuCheung/proxy-rules/main/Clash/APP/cy-ru
 - AI / GitHub → `CY 节点选择`
 
 地区组为空会 REJECT。订阅里要有带对应地区名的节点。
+
+## Bettbox（Windows / Android）
+
+全局扩展脚本（Loyalsoldier 规则集 + 单节点组 + 公司域名直连 + 系统 DNS），基于 Clash 目录下的 v6.2 脚本，针对 Bettbox 小改。
+
+导入地址：
+
+https://raw.githubusercontent.com/ChungyuCheung/proxy-rules/main/Bettbox/bettbox-script.js
+
+国内未连代理时可用镜像（有缓存，更新会延迟几个小时）：
+
+https://testingcf.jsdelivr.net/gh/ChungyuCheung/proxy-rules@main/Bettbox/bettbox-script.js
+
+操作：
+
+1. 先加好机场订阅并更新出节点。
+2. 在「脚本」里用上面的 URL 导入，并设为当前脚本。
+3. 确认该配置文件的「使用全局脚本覆写」已打开（默认打开）。
+4. **关闭「覆写 DNS」**。否则 Bettbox 会在脚本之后用设置页的 DNS 整体替换脚本的 `dns` 段，公司域名会被解析成公网 IP。
+5. 「禁用 QUIC」保持关闭。脚本只阻断 Google/YouTube 的 QUIC，打开它会阻断全部 UDP 443。
+
+说明：
+
+- 脚本模式下，配置文件里的「覆写」规则编辑不生效，这是正常的。
+- Bettbox 以 `main(config)` 调用脚本（QuickJS），不传 profileName，不支持 fetch。
+- 相对原 v6.2 的改动：`dns.enable` 强制为 `true`；12 个公司域名写入 `nameserver-policy`，指定 `system`。
+- DNS 分工：直连流量（国内网站、公司域名）用系统 / DHCP DNS；走代理的域名交给节点远端解析；需要判断 GEOIP 时用经代理的 8.8.8.8 / 8.8.4.4 DoH；节点域名用 223.5.5.5 / 119.29.29.29。
+- 新增公司域名：改脚本里的 `COMPANY_DOMAINS`；新增纠错规则：改 `CUSTOM_RULES`。改完提交后在 Bettbox 里刷新脚本即可，链接不变。
 
 ## Shadowrocket
 
