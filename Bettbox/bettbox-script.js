@@ -3,6 +3,7 @@
 // [bettbox] 使用本脚本时请关闭 Bettbox「覆写 DNS」，否则下方 dns 段会被 GUI DNS 整体替换。
 // [bettbox] 改动: dns.enable 强制 true (避免订阅 enable:false 触发 Bettbox 替换 DNS);
 //           公司域名写入 nameserver-policy=system (替代 GUI 里的 +.huitone.com=system)。
+//           direct-nameserver-follow-policy=true：已判定直连的域名用系统/DHCP DNS。
 // [v6.2] 增加高优先级 CUSTOM_RULES 区域，集中维护被远程规则集误伤的自定义规则。
 // [v6.1] IPPure 与其出口 IP 探测域名强制走所选节点，避免探测失败后显示占位 IP 8.8.8.8。
 // [v5.9] 精确 Microsoft 登录域 (login.live.com 等 + msauth* 后缀) 强制 DIRECT，修复 0x80190001。
@@ -229,7 +230,8 @@ function main(config) {
         dns["direct-nameserver"] = ["system"]
     }
 
-    dns["direct-nameserver-follow-policy"] = false
+    // true: 已判定直连的域名用上面的 direct-nameserver（系统 DNS），而不是经代理的 8.8.8.8。
+    dns["direct-nameserver-follow-policy"] = true
     // 代理节点域名及 DoH 引导使用国内 DNS，避免循环依赖。
     dns["default-nameserver"] = ["223.5.5.5", "119.29.29.29"]
 
