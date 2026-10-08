@@ -1,11 +1,13 @@
-// ===== Loyalsoldier 全局覆写脚本 v6.8-bettbox (Clash Verge / Mihomo / Bettbox) =====
+// ===== Loyalsoldier 全局覆写脚本 v6.9-bettbox (Clash Verge / Mihomo / Bettbox) =====
 // [bettbox] Bettbox 1.19.3 以 main(config) 调用 (QuickJS)，原脚本无需改签名。
 // [bettbox] 使用本脚本时请关闭 Bettbox「覆写 DNS」，否则下方 dns 段会被 GUI DNS 整体替换。
 // [bettbox] 改动: dns.enable 强制 true (避免订阅 enable:false 触发 Bettbox 替换 DNS);
 //           公司域名写入 nameserver-policy=system (替代 GUI 里的 +.huitone.com=system)。
-//           direct-nameserver-follow-policy=true：已判定直连的域名用系统/DHCP DNS。
+//           direct-nameserver-follow-policy=false：直连解析使用 system，不受其他 DNS 策略改道。
+// [v6.9] 完整重建 DNS，移除订阅遗留策略/fallback；直连使用当前系统 DNS。
+//        删除 v6.8 无效的 dns.hosts 固定地址补丁，适应公司/家庭网络切换。
 // [v6.8] 918.huinor.com 系统解析失败，直接使用 ping 得到的内网地址。
-// [v6.7] 强制 use-system-hosts，内网域名跟 Windows 一样走系统解析。
+// [v6.7] 启用 use-system-hosts，允许读取系统 hosts 文件。
 // [v6.6] 规则集改经节点下载。直连 GitHub / jsDelivr 都会 EOF。
 // [v6.5] 直连、内网和国内域名改用 DHCP DNS（dhcp://），不再依赖 system 解析。
 // [v6.4] 规则集改走 GitHub raw，并强制 DIRECT 下载，避开 jsDelivr 的 EOF / bad record MAC。
@@ -217,7 +219,8 @@ function main(config) {
         "MATCH," + PROXY,
     ]
     // ---- 4. DNS ----
-    const dns = config.dns || {}
+    // 完整重建 DNS，避免订阅遗留的精确域名策略及 fallback 将内网查询发往公共 DNS。
+    const dns = {}
 
     // [bettbox] 强制启用: Bettbox 在 dns.enable !== true 时会用 GUI DNS 覆盖整个 dns 段。
     dns.enable = true
@@ -231,11 +234,11 @@ function main(config) {
     }
     // 境外 DNS 经代理，避免污染和国内直连 Google DNS。
     dns.nameserver = ["https://8.8.8.8/dns-query#" + PROXY, "https://8.8.4.4/dns-query#" + PROXY]
-    // 直连流量用系统解析，和 Windows ping 同一条结果。
+    // 直连使用当前系统配置的 DNS；网卡自动获取 DNS 时包含 DHCP 下发的服务器。
     dns["direct-nameserver"] = ["system"]
 
-    // true: 已判定直连的域名用上面的 direct-nameserver。
-    dns["direct-nameserver-follow-policy"] = true
+    // 不让 nameserver-policy 改写直连出口的 DNS 选择。
+    dns["direct-nameserver-follow-policy"] = false
     // 代理节点域名及 DoH 引导使用国内 DNS，避免循环依赖。
     dns["default-nameserver"] = ["223.5.5.5", "119.29.29.29"]
 
@@ -243,9 +246,6 @@ function main(config) {
 
     if (!dns["cache-algorithm"]) dns["cache-algorithm"] = "arc"
     dns["use-system-hosts"] = true
-    const hosts = dns.hosts || {}
-    hosts["918.huinor.com"] = "172.16.12.10"
-    dns.hosts = hosts
 
     // 公司/内网域名排除 fake-ip；微软认证仍由域名规则识别，不扩大排除范围。
     const filter = dns["fake-ip-filter"] || []
@@ -264,7 +264,7 @@ function main(config) {
 
     dns["fake-ip-filter"] = filter
 
-    // 内网和国内域名用系统解析，读 hosts 和 Windows DNS。
+    // 内网和国内域名的 DNS 查询使用 system，随当前网络的 DNS 配置变化。
     const policy = dns["nameserver-policy"] || {}
     const LAN_DNS = "system"
     for (const d of COMPANY_DOMAINS) policy["+." + d] = LAN_DNS
