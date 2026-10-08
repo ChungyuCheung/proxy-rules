@@ -1,9 +1,10 @@
-// ===== Loyalsoldier 全局覆写脚本 v6.7-bettbox (Clash Verge / Mihomo / Bettbox) =====
+// ===== Loyalsoldier 全局覆写脚本 v6.8-bettbox (Clash Verge / Mihomo / Bettbox) =====
 // [bettbox] Bettbox 1.19.3 以 main(config) 调用 (QuickJS)，原脚本无需改签名。
 // [bettbox] 使用本脚本时请关闭 Bettbox「覆写 DNS」，否则下方 dns 段会被 GUI DNS 整体替换。
 // [bettbox] 改动: dns.enable 强制 true (避免订阅 enable:false 触发 Bettbox 替换 DNS);
 //           公司域名写入 nameserver-policy=system (替代 GUI 里的 +.huitone.com=system)。
 //           direct-nameserver-follow-policy=true：已判定直连的域名用系统/DHCP DNS。
+// [v6.8] 918.huinor.com 系统解析失败，直接使用 ping 得到的内网地址。
 // [v6.7] 强制 use-system-hosts，内网域名跟 Windows 一样走系统解析。
 // [v6.6] 规则集改经节点下载。直连 GitHub / jsDelivr 都会 EOF。
 // [v6.5] 直连、内网和国内域名改用 DHCP DNS（dhcp://），不再依赖 system 解析。
@@ -242,6 +243,9 @@ function main(config) {
 
     if (!dns["cache-algorithm"]) dns["cache-algorithm"] = "arc"
     dns["use-system-hosts"] = true
+    const hosts = dns.hosts || {}
+    hosts["918.huinor.com"] = "172.16.12.10"
+    dns.hosts = hosts
 
     // 公司/内网域名排除 fake-ip；微软认证仍由域名规则识别，不扩大排除范围。
     const filter = dns["fake-ip-filter"] || []
