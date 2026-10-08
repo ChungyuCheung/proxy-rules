@@ -1,9 +1,10 @@
-// ===== Loyalsoldier 全局覆写脚本 v6.2-bettbox (Clash Verge / Mihomo / Bettbox) =====
+// ===== Loyalsoldier 全局覆写脚本 v6.3-bettbox (Clash Verge / Mihomo / Bettbox) =====
 // [bettbox] Bettbox 1.19.3 以 main(config) 调用 (QuickJS)，原脚本无需改签名。
 // [bettbox] 使用本脚本时请关闭 Bettbox「覆写 DNS」，否则下方 dns 段会被 GUI DNS 整体替换。
 // [bettbox] 改动: dns.enable 强制 true (避免订阅 enable:false 触发 Bettbox 替换 DNS);
 //           公司域名写入 nameserver-policy=system (替代 GUI 里的 +.huitone.com=system)。
 //           direct-nameserver-follow-policy=true：已判定直连的域名用系统/DHCP DNS。
+// [v6.3] 规则集 CDN 从 testingcf.jsdelivr.net 改为 cdn.jsdelivr.net，避开 tls: bad record MAC。
 // [v6.2] 增加高优先级 CUSTOM_RULES 区域，集中维护被远程规则集误伤的自定义规则。
 // [v6.1] IPPure 与其出口 IP 探测域名强制走所选节点，避免探测失败后显示占位 IP 8.8.8.8。
 // [v5.9] 精确 Microsoft 登录域 (login.live.com 等 + msauth* 后缀) 强制 DIRECT，修复 0x80190001。
@@ -13,8 +14,8 @@
 // 备注: Store 问题通常是 UWP loopback，与规则无关 (见 README)。
 const PROXY = "⚡ 节点选择"
 
-// Loyalsoldier CDN (testingcf for CN speed; alternatives: cdn.jsdelivr.net, raw.githubusercontent.com)
-const RULE_CDN = "https://testingcf.jsdelivr.net/gh/Loyalsoldier/clash-rules@release"
+// Loyalsoldier CDN. testingcf.jsdelivr.net 在部分网络上会报 tls: bad record MAC。
+const RULE_CDN = "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release"
 
 // ---- 自定义高优先级规则 ----
 // 用于修正规则集误判；按 Clash 规则格式逐行添加，越靠前优先级越高。
