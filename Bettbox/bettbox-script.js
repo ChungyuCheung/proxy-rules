@@ -1,9 +1,10 @@
-// ===== Loyalsoldier 全局覆写脚本 v6.5-bettbox (Clash Verge / Mihomo / Bettbox) =====
+// ===== Loyalsoldier 全局覆写脚本 v6.6-bettbox (Clash Verge / Mihomo / Bettbox) =====
 // [bettbox] Bettbox 1.19.3 以 main(config) 调用 (QuickJS)，原脚本无需改签名。
 // [bettbox] 使用本脚本时请关闭 Bettbox「覆写 DNS」，否则下方 dns 段会被 GUI DNS 整体替换。
 // [bettbox] 改动: dns.enable 强制 true (避免订阅 enable:false 触发 Bettbox 替换 DNS);
 //           公司域名写入 nameserver-policy=system (替代 GUI 里的 +.huitone.com=system)。
 //           direct-nameserver-follow-policy=true：已判定直连的域名用系统/DHCP DNS。
+// [v6.6] 规则集改经节点下载。直连 GitHub / jsDelivr 都会 EOF。
 // [v6.5] 直连、内网和国内域名改用 DHCP DNS（dhcp://），不再依赖 system 解析。
 // [v6.4] 规则集改走 GitHub raw，并强制 DIRECT 下载，避开 jsDelivr 的 EOF / bad record MAC。
 // [v6.3] 规则集 CDN 从 testingcf.jsdelivr.net 改为 cdn.jsdelivr.net，避开 tls: bad record MAC。
@@ -113,7 +114,7 @@ function main(config) {
         url: RULE_CDN + "/" + name + ".txt",
         path: "./ruleset/loyalsoldier/" + name + ".yaml",
         interval: 86400,
-        proxy: "DIRECT",
+        proxy: PROXY,
     })
 
     config["rule-providers"] = {
