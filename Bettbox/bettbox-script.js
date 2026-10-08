@@ -1,9 +1,10 @@
-// ===== Loyalsoldier 全局覆写脚本 v6.6-bettbox (Clash Verge / Mihomo / Bettbox) =====
+// ===== Loyalsoldier 全局覆写脚本 v6.7-bettbox (Clash Verge / Mihomo / Bettbox) =====
 // [bettbox] Bettbox 1.19.3 以 main(config) 调用 (QuickJS)，原脚本无需改签名。
 // [bettbox] 使用本脚本时请关闭 Bettbox「覆写 DNS」，否则下方 dns 段会被 GUI DNS 整体替换。
 // [bettbox] 改动: dns.enable 强制 true (避免订阅 enable:false 触发 Bettbox 替换 DNS);
 //           公司域名写入 nameserver-policy=system (替代 GUI 里的 +.huitone.com=system)。
 //           direct-nameserver-follow-policy=true：已判定直连的域名用系统/DHCP DNS。
+// [v6.7] 强制 use-system-hosts，内网域名跟 Windows 一样走系统解析。
 // [v6.6] 规则集改经节点下载。直连 GitHub / jsDelivr 都会 EOF。
 // [v6.5] 直连、内网和国内域名改用 DHCP DNS（dhcp://），不再依赖 system 解析。
 // [v6.4] 规则集改走 GitHub raw，并强制 DIRECT 下载，避开 jsDelivr 的 EOF / bad record MAC。
@@ -229,8 +230,8 @@ function main(config) {
     }
     // 境外 DNS 经代理，避免污染和国内直连 Google DNS。
     dns.nameserver = ["https://8.8.8.8/dns-query#" + PROXY, "https://8.8.4.4/dns-query#" + PROXY]
-    // 直连流量用网卡 DHCP 下发的 DNS，不走 system，也不走代理上的 8.8.8.8。
-    dns["direct-nameserver"] = ["dhcp://"]
+    // 直连流量用系统解析，和 Windows ping 同一条结果。
+    dns["direct-nameserver"] = ["system"]
 
     // true: 已判定直连的域名用上面的 direct-nameserver。
     dns["direct-nameserver-follow-policy"] = true
@@ -240,7 +241,7 @@ function main(config) {
     dns["proxy-server-nameserver"] = ["223.5.5.5", "119.29.29.29"]
 
     if (!dns["cache-algorithm"]) dns["cache-algorithm"] = "arc"
-    if (dns["use-system-hosts"] === undefined) dns["use-system-hosts"] = true
+    dns["use-system-hosts"] = true
 
     // 公司/内网域名排除 fake-ip；微软认证仍由域名规则识别，不扩大排除范围。
     const filter = dns["fake-ip-filter"] || []
@@ -259,12 +260,12 @@ function main(config) {
 
     dns["fake-ip-filter"] = filter
 
-    // 内网和国内域名用 DHCP DNS 解析。覆盖旧的 system，避免解析不到内网记录。
+    // 内网和国内域名用系统解析，读 hosts 和 Windows DNS。
     const policy = dns["nameserver-policy"] || {}
-    const DHCP_DNS = "dhcp://"
-    for (const d of COMPANY_DOMAINS) policy["+." + d] = DHCP_DNS
-    for (const item of ["+.lan", "+.local", "+.home.arpa", "+.cn"]) policy[item] = DHCP_DNS
-    policy["geosite:cn"] = DHCP_DNS
+    const LAN_DNS = "system"
+    for (const d of COMPANY_DOMAINS) policy["+." + d] = LAN_DNS
+    for (const item of ["+.lan", "+.local", "+.home.arpa", "+.cn"]) policy[item] = LAN_DNS
+    policy["geosite:cn"] = LAN_DNS
     dns["nameserver-policy"] = policy
 
     config.dns = dns
