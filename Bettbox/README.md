@@ -111,7 +111,7 @@ TUN 只负责把流量送进 Mihomo，并不等于所有流量无条件走代理
 - `bettbox-script.js`：旧版 v6.9。
 - `bettbox-script-v7.0-webrtc.js`：v7.0 TUN/WebRTC 版本快照，用于历史留档和兼容旧链接。
 - `bettbox-system-proxy.js`：系统代理模式的固定更新入口。
-- `bettbox-tun.js`：TUN 模式的固定更新入口，当前为 v7.1，并包含节点服务器直连修复。
+- `bettbox-tun.js`：TUN 模式的固定更新入口，当前为 v7.2，并将节点底层连接显式绑定到物理 `WLAN`。
 
 因此实际使用时：
 

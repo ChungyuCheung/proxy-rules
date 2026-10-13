@@ -1,7 +1,7 @@
-// ===== Loyalsoldier 全局覆写脚本 v7.1-tun-webrtc (Bettbox / Mihomo) =====
+// ===== Loyalsoldier 全局覆写脚本 v7.2-tun-webrtc (Bettbox / Mihomo) =====
 // [tun] 适用于 Windows TUN 模式。请开启 TUN；严格路由若引起变慢或节点超时，请保持关闭。
-// [v7.1] 将已确认受 TUN 路由影响的节点服务器 IP 强制直连，避免代理核心
-//        连接节点服务器时再次受到代理规则影响。
+// [v7.2] 将全局出口及每个代理节点的底层连接显式绑定到物理 WLAN，避免
+//        Windows TUN 自动选路导致核心连接节点时回流或超时。
 // [v7.0] WebRTC/STUN 防泄漏：常见 STUN/TURN 端口先强制走所选节点；
 //        节点不支持 UDP 时立即拒绝同一流量，避免继续匹配到 DIRECT。
 //        Windows 版 Bettbox 须开启 TUN；严格路由并非必要，因为脚本无法拦截
@@ -110,14 +110,22 @@ const GOOGLE_PROXY_DOMAINS = [
 const WEBRTC_STUN_TURN_PORTS =
     'OR,((DST-PORT,3478-3481),(DST-PORT,5349),(DST-PORT,19302-19309))'
 
-// 节点服务器本身必须从物理网络直连。该地址来自 2026-10-13 故障日志：
-// hhkk01.shiinamahiru.org -> 103.240.196.116。若域名以后换 IP，请同步更新。
-const TUN_NODE_BYPASS_RULES = [
-    'IP-CIDR,103.240.196.116/32,DIRECT,no-resolve',
-]
+// 这台 Windows 11 电脑的物理上联网卡名称。若以后改用有线网络，请改成
+// Windows“网络连接”中对应的网卡名称（例如“以太网”）。
+const TUN_OUTBOUND_INTERFACE = 'WLAN'
 
 function main(config) {
-    if (!config || typeof config !== "object") config = {}
+    if (!config || typeof config !== 'object') config = {}
+    // Windows TUN 下显式绑定物理出口；同时写入每个节点，避免 GUI 保留
+    // auto-detect-interface 时核心自身的节点连接再次进入 TUN。
+    config['interface-name'] = TUN_OUTBOUND_INTERFACE
+    if (Array.isArray(config.proxies)) {
+        for (const proxy of config.proxies) {
+            if (proxy && typeof proxy === 'object') {
+                proxy['interface-name'] = TUN_OUTBOUND_INTERFACE
+            }
+        }
+    }
     // ---- 0. 多 IP 并发建连，减少首连卡顿 ----
     config["tcp-concurrent"] = true
     // ---- 1. 单组手动选择，选定后不自动切换 ----
@@ -162,8 +170,6 @@ function main(config) {
 
     // ---- 3. 主规则，丢弃订阅自带 rules ----
     config.rules = [
-        // 必须置顶：防止代理节点的出站连接被 TUN 再次送入代理规则。
-        ...TUN_NODE_BYPASS_RULES,
         // 私网网段置顶直连，防止 ruleset 异步加载期间泄漏。
         "IP-CIDR,127.0.0.0/8,DIRECT,no-resolve",
         "IP-CIDR,10.0.0.0/8,DIRECT,no-resolve",
