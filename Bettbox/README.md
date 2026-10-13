@@ -96,7 +96,7 @@ TUN 只负责把流量送进 Mihomo，并不等于所有流量无条件走代理
 你的情况已经出现 WebRTC 公网 IP 不一致，因此建议导入并启用 `bettbox-tun.js`，同时在 Bettbox 中开启：
 
 1. TUN 模式。
-2. 严格路由 / Strict Route。
+2. 严格路由按兼容性选择；如果网速变慢或节点超时，请保持关闭。
 3. 支持 UDP 的代理节点。
 4. 刷新订阅并重启内核。
 
@@ -111,7 +111,7 @@ TUN 只负责把流量送进 Mihomo，并不等于所有流量无条件走代理
 - `bettbox-script.js`：旧版 v6.9。
 - `bettbox-script-v7.0-webrtc.js`：v7.0 TUN/WebRTC 版本快照，用于历史留档和兼容旧链接。
 - `bettbox-system-proxy.js`：系统代理模式的固定更新入口。
-- `bettbox-tun.js`：TUN 模式的固定更新入口，当前功能与 `bettbox-script-v7.0-webrtc.js` 完全相同。
+- `bettbox-tun.js`：TUN 模式的固定更新入口，当前为 v7.1，并包含节点服务器直连修复。
 
 因此实际使用时：
 

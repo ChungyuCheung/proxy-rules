@@ -1,8 +1,10 @@
-// ===== Loyalsoldier 全局覆写脚本 v7.0-tun-webrtc (Bettbox / Mihomo) =====
-// [tun] 适用于 Windows TUN 模式。请在 Bettbox 中同时开启 TUN 与严格路由。
+// ===== Loyalsoldier 全局覆写脚本 v7.1-tun-webrtc (Bettbox / Mihomo) =====
+// [tun] 适用于 Windows TUN 模式。请开启 TUN；严格路由若引起变慢或节点超时，请保持关闭。
+// [v7.1] 将已确认受 TUN 路由影响的节点服务器 IP 强制直连，避免代理核心
+//        连接节点服务器时再次受到代理规则影响。
 // [v7.0] WebRTC/STUN 防泄漏：常见 STUN/TURN 端口先强制走所选节点；
 //        节点不支持 UDP 时立即拒绝同一流量，避免继续匹配到 DIRECT。
-//        Windows 版 Bettbox 仍须开启 TUN + 严格路由，因为脚本无法拦截
+//        Windows 版 Bettbox 须开启 TUN；严格路由并非必要，因为脚本无法拦截
 //        根本没有进入 Mihomo 内核的 UDP 流量。
 // [bettbox] Bettbox 1.19.3 以 main(config) 调用 (QuickJS)，原脚本无需改签名。
 // [bettbox] 使用本脚本时请关闭 Bettbox「覆写 DNS」，否则下方 dns 段会被 GUI DNS 整体替换。
@@ -108,6 +110,12 @@ const GOOGLE_PROXY_DOMAINS = [
 const WEBRTC_STUN_TURN_PORTS =
     'OR,((DST-PORT,3478-3481),(DST-PORT,5349),(DST-PORT,19302-19309))'
 
+// 节点服务器本身必须从物理网络直连。该地址来自 2026-10-13 故障日志：
+// hhkk01.shiinamahiru.org -> 103.240.196.116。若域名以后换 IP，请同步更新。
+const TUN_NODE_BYPASS_RULES = [
+    'IP-CIDR,103.240.196.116/32,DIRECT,no-resolve',
+]
+
 function main(config) {
     if (!config || typeof config !== "object") config = {}
     // ---- 0. 多 IP 并发建连，减少首连卡顿 ----
@@ -154,6 +162,8 @@ function main(config) {
 
     // ---- 3. 主规则，丢弃订阅自带 rules ----
     config.rules = [
+        // 必须置顶：防止代理节点的出站连接被 TUN 再次送入代理规则。
+        ...TUN_NODE_BYPASS_RULES,
         // 私网网段置顶直连，防止 ruleset 异步加载期间泄漏。
         "IP-CIDR,127.0.0.0/8,DIRECT,no-resolve",
         "IP-CIDR,10.0.0.0/8,DIRECT,no-resolve",
@@ -290,7 +300,7 @@ function main(config) {
     config.dns = dns
     // 不添加旧式 webrtc: false：现代 Mihomo 不支持此字段。
     // Bettbox 会在脚本执行后应用客户端自身的 TUN 设置。Windows 上须在
-    // 客户端开启 TUN 与严格路由，否则浏览器 UDP 会在规则匹配前绕过 Mihomo。
+    // 客户端开启 TUN；严格路由若导致变慢或节点超时，可以保持关闭。
 
     return config
 }
